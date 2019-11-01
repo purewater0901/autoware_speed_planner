@@ -60,6 +60,7 @@ class SpeedPlannerNode
         void timerCallback(const ros::TimerEvent &e);
 
         double curvatureWeight_;
+        double decayFactor_;
         bool isInitialize_;
         double previousVelocity_;
         double timer_callback_dt_;
