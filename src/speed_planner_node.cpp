@@ -2,7 +2,6 @@
 
 int main(int argc, char** argv)
 {
-
     ros::init(argc, argv, "speed_planner");
     SpeedPlannerNode node;
     ros::spin();
@@ -133,17 +132,10 @@ void SpeedPlannerNode::timerCallback(const ros::TimerEvent& e)
         }
 
         //1. create trajectory
-        int previewSize = speedOptimizer_->previewDistance_/speedOptimizer_->ds_;
-        ReferenceTrajectory trajectory(x, y, speedOptimizer_->ds_, previewSize);
-
-        int smoothNum = 10;
-        for(size_t i=smoothNum; i<trajectory.curvature_.size(); ++i)
-        {
-            double tmpSum = 0.0;
-            for(int j=0; j<=smoothNum; ++j)
-                tmpSum += trajectory.curvature_[i-j];
-            trajectory.curvature_[i] = tmpSum/(smoothNum+1);
-        }
+        double previewDistance = speedOptimizer_->previewDistance_;
+        int skip_size = 5;
+        int smooth_size = 50;
+        TrajectoryLoader trajectory(x, y, speedOptimizer_->ds_, previewDistance, skip_size, smooth_size);
 
         //2. Create Speed Constraints and Acceleration Constraints
         int N = trajectory.size();
