@@ -5,9 +5,9 @@
     <arg name="preview_distance" default="50" />
     <arg name="time_weight" default="0.0" />
     <arg name="smooth_weight" default="15.0" />
-    <arg name="velocity_weight" default="5.0" />
+    <arg name="velocity_weight" default="15.0" />
     <arg name="longitudinal_slack_weight" default="1.0" />
-    <arg name="lateral_slack_weight" default="10.0" />
+    <arg name="lateral_slack_weight" default="1.0" />
     <arg name="curvature_weight" default="20" />
     <node pkg="speed_planner" type="speed_planner" name="speed_planner" output="screen">
         <param name="mass" value="$(arg mass)" />
