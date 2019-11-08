@@ -29,6 +29,7 @@ class SpeedPlannerNode
     private:
         ros::NodeHandle nh_, private_nh_;
         ros::Publisher optimized_waypoints_pub_;
+        ros::Publisher desired_velocity_pub_;
         ros::Publisher optimized_waypoints_debug_;
         ros::Subscriber current_status_sub_;
         ros::Subscriber current_pose_sub_;
@@ -64,6 +65,7 @@ class SpeedPlannerNode
         bool isInitialize_;
         double previousVelocity_;
         double timer_callback_dt_;
+        double lateral_g_;
 };
 
 #endif

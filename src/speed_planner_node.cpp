@@ -15,7 +15,7 @@ SpeedPlannerNode::SpeedPlannerNode() : nh_(), private_nh_("~"), isInitialize_(fa
     double mu;
     double ds;
     double previewDistance;
-    std::array<double, 5> weight;
+    std::array<double, 5> weight{0};
     private_nh_.param<double>("mass", mass, 1500.0);
     private_nh_.param<double>("mu", mu, 0.8);
     private_nh_.param<double>("ds", ds, 0.1);
@@ -27,11 +27,14 @@ SpeedPlannerNode::SpeedPlannerNode() : nh_(), private_nh_("~"), isInitialize_(fa
     private_nh_.param<double>("velocity_weight", weight[2], 0.001);
     private_nh_.param<double>("longitudinal_slack_weight", weight[3], 1.0);
     private_nh_.param<double>("lateral_slack_weight", weight[4], 10.0);
+    private_nh_.param<double>("lateral_g", lateral_g_, 0.4);
 
     speedOptimizer_.reset(new ConvexSpeedOptimizer(previewDistance, ds, mass, mu, weight));
 
     optimized_waypoints_pub_ = nh_.advertise<autoware_msgs::Lane>("final_waypoints", 1, true);
     optimized_waypoints_debug_ = nh_.advertise<geometry_msgs::Twist>("optimized_speed_debug", 1, true);
+    desired_velocity_pub_ = nh_.advertise<geometry_msgs::Twist>("desired_velocity", 1, true);
+
     final_waypoints_sub_ = nh_.subscribe("safety_waypoints", 1, &SpeedPlannerNode::waypointsCallback, this);
     current_pose_sub_ = nh_.subscribe("/current_pose", 1, &SpeedPlannerNode::currentPoseCallback, this);
     current_status_sub_ = nh_.subscribe("/vehicle_status", 1, &SpeedPlannerNode::currentStatusCallback, this);
@@ -152,6 +155,7 @@ void SpeedPlannerNode::timerCallback(const ros::TimerEvent& e)
             Vr[i] = 5.0;
             //Vd[i] = Vr[i]/(1+curvatureWeight_*std::fabs(trajectory.curvature_[i]));
 
+            /*
             double tmpSum = 0.0;
             for(size_t j=i; j<i+10; ++j)
             {
@@ -162,6 +166,8 @@ void SpeedPlannerNode::timerCallback(const ros::TimerEvent& e)
             }
             tmpSum+=1.0;
             Vd[i] = Vr[i]/tmpSum;
+            */
+           Vd[i] = std::min(Vr[i], std::sqrt(lateral_g_/(std::fabs(trajectory.curvature_[i]+1e-6))));
         }
 
         double mu = speedOptimizer_->mu_;
@@ -220,7 +226,7 @@ void SpeedPlannerNode::timerCallback(const ros::TimerEvent& e)
         speedOptimizedLane.closest_object_velocity = in_lane_ptr_->closest_object_velocity;
         speedOptimizedLane.waypoints.reserve(result.size());
 
-        int scale = 1.0/speedOptimizer_->ds_;
+        int scale = int(1.0/speedOptimizer_->ds_);
         for(int i=10; i<N; i++)
         {
             autoware_msgs::Waypoint waypoint;
@@ -237,10 +243,18 @@ void SpeedPlannerNode::timerCallback(const ros::TimerEvent& e)
             speedOptimizedLane.waypoints.push_back(waypoint);
         }
 
-        for(int i=0; i<result.size(); ++i)
+        if(!result.empty())
         {
-          std::cout << Vd[i] << ": " << result[i] << std::endl;
+            geometry_msgs::Twist desired_velocity;
+            desired_velocity.linear.x = result[10];
+
+            desired_velocity_pub_.publish(desired_velocity);
         }
+
+        /*
+        for(size_t i=0; i<result.size(); ++i)
+          std::cout << Vd[i] << ": " << result[i] << std::endl;
+          */
 
         optimized_waypoints_pub_.publish(speedOptimizedLane);
     }

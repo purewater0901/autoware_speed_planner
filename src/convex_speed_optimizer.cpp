@@ -40,7 +40,7 @@ bool ConvexSpeedOptimizer::calcOptimizedSpeed(TrajectoryLoader& trajectory,
         /* Create Environment */
         GRBEnv env = GRBEnv();
         GRBModel model = GRBModel(env);
-        //model.set(GRB_IntParam_OutputFlag, 0);
+        model.set(GRB_IntParam_OutputFlag, 0);
 
         //Create Variables
         std::vector<GRBVar> variables;
@@ -86,10 +86,6 @@ bool ConvexSpeedOptimizer::calcOptimizedSpeed(TrajectoryLoader& trajectory,
         Jv += (variables[N-1] - Vd[N-1]*Vd[N-1])*(variables[N-1] - Vd[N-1]*Vd[N-1])*ds_;
         JLonSlack += variables[3*N-1] * variables[3*N-1];
         JLatSlack += variables[4*N-1] * variables[4*N-1];
-        std::cout << "weight 1: " << weight_[1] << std::endl;
-        std::cout << "weight 2: " << weight_[2] << std::endl;
-        std::cout << "weight 3: " << weight_[3] << std::endl;
-        std::cout << "weight 4: " << weight_[4] << std::endl;
 
         //model.setObjective(weight_[0]*Jt+weight_[1]*Js+weight_[2]*Jv+weight_[3]*JLonSlack+weight_[4]*JLatSlack, GRB_MINIMIZE);
         model.setObjective(weight_[1]*Js+weight_[2]*Jv+weight_[3]*JLonSlack+weight_[4]*JLatSlack, GRB_MINIMIZE);

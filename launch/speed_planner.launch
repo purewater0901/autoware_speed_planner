@@ -10,6 +10,7 @@
     <arg name="lateral_slack_weight" default="10.0" />
     <arg name="curvature_weight" default="10" />
     <arg name="decay_factor" default="0.8" />
+    <arg name="lateral_g" default="0.4" />
     <node pkg="speed_planner" type="speed_planner" name="speed_planner" output="screen">
         <param name="mass" value="$(arg mass)" />
         <param name="mu" value="$(arg mu)" />
@@ -22,5 +23,6 @@
         <param name="lateral_slack_weight" value="$(arg lateral_slack_weight)" />
         <param name="curvature_weight" value="$(arg curvature_weight)" />
         <param name="decay_factor" value="$(arg decay_factor)" />
+        <param name="lateral_g" value="$(arg lateral_g)" />
     </node>
 </launch>
