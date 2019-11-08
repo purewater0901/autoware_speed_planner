@@ -18,7 +18,7 @@ ConvexSpeedOptimizer::ConvexSpeedOptimizer
         ds_ = 0.1;
 }
 
-bool ConvexSpeedOptimizer::calcOptimizedSpeed(ReferenceTrajectory& trajectory,
+bool ConvexSpeedOptimizer::calcOptimizedSpeed(TrajectoryLoader& trajectory,
                                               std::vector<double>& resultSpeed, 
                                               const std::vector<double>& Vr,
                                               const std::vector<double>& Vd,
