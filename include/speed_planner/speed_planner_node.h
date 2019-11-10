@@ -19,6 +19,9 @@
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include "speed_planner/trajectory_loader.h"
 #include "speed_planner/convex_speed_optimizer.h"
+#include "speed_planner/obstacle.h"
+#include "speed_planner/vehicle_info.h"
+#include "speed_planner/collision_checker.h"
 
 class SpeedPlannerNode
 {
@@ -35,7 +38,6 @@ class SpeedPlannerNode
         ros::Subscriber current_pose_sub_;
         ros::Subscriber current_velocity_sub_;
         ros::Subscriber final_waypoints_sub_;
-        ros::Subscriber nav_goal_sub_;
         ros::Subscriber objects_sub_;
 
         ros::Timer timer_;
@@ -51,23 +53,24 @@ class SpeedPlannerNode
         std::unique_ptr<autoware_msgs::DetectedObjectArray> in_objects_ptr_;
   
         std::unique_ptr<ConvexSpeedOptimizer> speedOptimizer_;
+        std::unique_ptr<VehicleInfo> ego_vehicle_ptr_;
+        std::unique_ptr<CollisionChecker> collision_checker_ptr_;
 
         void waypointsCallback(const autoware_msgs::Lane& msg);
         void objectsCallback(const autoware_msgs::DetectedObjectArray& msg);
         void currentStatusCallback(const autoware_msgs::VehicleStatus& msg);
         void currentPoseCallback(const geometry_msgs::PoseStamped& msg);
         void currentVelocityCallback(const geometry_msgs::TwistStamped& msg);
-        void navGoalCallback(const geometry_msgs::PoseStamped& msg);
         void timerCallback(const ros::TimerEvent &e);
 
         double curvatureWeight_;
         double decayFactor_;
-        bool isInitialize_;
         double previousVelocity_;
         double timer_callback_dt_;
         double lateral_g_;
         int skip_size_;
         int smooth_size_;
+        bool isInitialize_;
 };
 
 #endif

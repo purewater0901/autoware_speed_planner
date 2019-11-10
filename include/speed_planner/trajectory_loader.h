@@ -17,6 +17,7 @@ public:
     ~TrajectoryLoader() = default;
     void set_waypoints();
     int size(){ return size_; }
+    double get_ds(){ return ds_; }
 
     std::vector<double> x_;
     std::vector<double> y_;

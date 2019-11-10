@@ -1,0 +1,8 @@
+prefix=/home/yutaka/autoware.ai/src/autoware/core_planning/speed_planner/install/speed_planner
+
+Name: speed_planner
+Description: Description of speed_planner
+Version: 0.0.0
+Cflags: 
+Libs: -L/home/yutaka/autoware.ai/src/autoware/core_planning/speed_planner/install/speed_planner/lib 
+Requires: roscpp std_msgs tf2_ros autoware_msgs vector_map

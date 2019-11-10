@@ -15,7 +15,12 @@ SpeedPlannerNode::SpeedPlannerNode() : nh_(), private_nh_("~"), isInitialize_(fa
     double mu;
     double ds;
     double previewDistance;
+    double vehicle_length;
+    double vehicle_width;
+    double vehicle_wheel_base;
+    double vehicle_safety_distance;
     std::array<double, 5> weight{0};
+
     private_nh_.param<double>("mass", mass, 1500.0);
     private_nh_.param<double>("mu", mu, 0.8);
     private_nh_.param<double>("ds", ds, 0.1);
@@ -30,10 +35,14 @@ SpeedPlannerNode::SpeedPlannerNode() : nh_(), private_nh_("~"), isInitialize_(fa
     private_nh_.param<double>("lateral_g", lateral_g_, 0.4);
     private_nh_.param<int>("skip_size", skip_size_, 10);
     private_nh_.param<int>("smooth_size", smooth_size_, 50);
-
-
+    private_nh_.param<double>("vehicle_length", vehicle_length, 5.0);
+    private_nh_.param<double>("vehicle_width", vehicle_width, 1.895);
+    private_nh_.param<double>("vehicle_wheel_base", vehicle_wheel_base, 2.790);
+    private_nh_.param<double>("vehicle_safety_distance", vehicle_safety_distance, 0.1);
 
     speedOptimizer_.reset(new ConvexSpeedOptimizer(previewDistance, ds, mass, mu, weight));
+    ego_vehicle_ptr_.reset(new VehicleInfo(vehicle_length, vehicle_width, vehicle_wheel_base,vehicle_safety_distance));
+    collision_checker_ptr_.reset(new CollisionChecker());
 
     optimized_waypoints_pub_ = nh_.advertise<autoware_msgs::Lane>("final_waypoints", 1, true);
     optimized_waypoints_debug_ = nh_.advertise<geometry_msgs::Twist>("optimized_speed_debug", 1, true);
@@ -43,7 +52,6 @@ SpeedPlannerNode::SpeedPlannerNode() : nh_(), private_nh_("~"), isInitialize_(fa
     current_pose_sub_ = nh_.subscribe("/current_pose", 1, &SpeedPlannerNode::currentPoseCallback, this);
     current_status_sub_ = nh_.subscribe("/vehicle_status", 1, &SpeedPlannerNode::currentStatusCallback, this);
     current_velocity_sub_ = nh_.subscribe("/current_velocity", 1, &SpeedPlannerNode::currentVelocityCallback, this);
-    nav_goal_sub_ = nh_.subscribe("/move_base_simple/goal", 1, &SpeedPlannerNode::navGoalCallback, this);
     objects_sub_ = nh_.subscribe("/detection/fake_perception/objects", 1, &SpeedPlannerNode::objectsCallback, this);
     timer_ = nh_.createTimer(ros::Duration(timer_callback_dt_), &SpeedPlannerNode::timerCallback, this);
 }
@@ -69,36 +77,19 @@ void SpeedPlannerNode::currentStatusCallback(const autoware_msgs::VehicleStatus&
   in_status_ptr_.reset(new autoware_msgs::VehicleStatus(msg));
 }
 
-void SpeedPlannerNode::navGoalCallback(const geometry_msgs::PoseStamped& msg)
-{
-  std::string target_frame = "map";
-  std::string source_frame = "world";
-  geometry_msgs::TransformStamped transform;
-  try
-  {
-    transform = tf2_buffer_ptr_->lookupTransform(target_frame, source_frame, ros::Time(0));
-    geometry_msgs::PoseStamped msg_in_map;
-    tf2::doTransform(msg, msg_in_map, transform);
-    in_nav_goal_ptr_.reset(new geometry_msgs::PoseStamped(msg_in_map));
-  }
-  catch (tf2::TransformException &ex)
-  {
-    ROS_WARN("%s", ex.what());
-  }
-}
-
 void SpeedPlannerNode::objectsCallback(const autoware_msgs::DetectedObjectArray& msg)
 {
   if(in_lane_ptr_)
   {
     if(msg.objects.size() == 0)
     {
-      std::cerr << "ssize of objects is 0" << std::endl;
+      std::cerr << "size of objects is 0" << std::endl;
       return;
     }
     geometry_msgs::TransformStamped objects2map_tf;
     try
     {
+        std::cout << "Transoform" << std::endl;
         objects2map_tf = tf2_buffer_ptr_->lookupTransform(
           /*target*/  in_lane_ptr_->header.frame_id, 
           /*src*/ msg.header.frame_id,
@@ -126,7 +117,7 @@ void SpeedPlannerNode::objectsCallback(const autoware_msgs::DetectedObjectArray&
 
 void SpeedPlannerNode::timerCallback(const ros::TimerEvent& e)
 {
-    if(in_lane_ptr_ && in_twist_ptr_)
+    if(in_lane_ptr_&& in_twist_ptr_ && ego_vehicle_ptr_)
     {
         int waypointSize = in_lane_ptr_->waypoints.size();
         std::vector<double> x(waypointSize, 0.0);
@@ -151,7 +142,6 @@ void SpeedPlannerNode::timerCallback(const ros::TimerEvent& e)
         std::vector<double> Aclon(N, 0.0);  //comfort longitudinal acceleration restriction
         std::vector<double> Aclat(N, 0.0);  //comfort lateral acceleration restriction
 
-        trajectory.curvature_[0] = trajectory.curvature_[1];
         for(size_t i=0; i<Vr.size(); ++i)
         {
             Vr[i] = 5.0;
@@ -169,7 +159,7 @@ void SpeedPlannerNode::timerCallback(const ros::TimerEvent& e)
 
         //3. initial speed and initial acceleration
         double v0 = in_twist_ptr_->twist.linear.x;
-        std::cout << "Current Velocity: " << v0 << std::endl;
+        ROS_INFO("Current Velocity: %f", v0);
         double a0 = 0.0;
         if(!isInitialize_)
         {
@@ -182,10 +172,35 @@ void SpeedPlannerNode::timerCallback(const ros::TimerEvent& e)
           previousVelocity_ = v0;
         }
 
-        //4. dyanmic 
-        double collisionTime = 0.0;
+        //4. dyanmic obstacles
+        double safeTime = 10.0;
+        std::pair<double, double> collision_time_distance_result; //predicted collision time and distance
+        bool is_collide = false;
+
+        std::vector<Obstacle> obstacles;
+        if(in_objects_ptr_ && !in_objects_ptr_->objects.empty())
+        {
+          std::cout << "set obstacles " << std::endl;
+          for(int i=0; i<in_objects_ptr_->objects.size(); ++i)
+          {
+            Obstacle tmp;
+            tmp.x_ = in_objects_ptr_->objects[i].pose.position.x;
+            tmp.y_ = in_objects_ptr_->objects[i].pose.position.y;
+            tmp.radius_ = std::sqrt(std::pow(in_objects_ptr_->objects[i].dimensions.x, 2) + std::pow(in_objects_ptr_->objects[i].dimensions.y, 2));
+            tmp.translational_velocity_ = in_objects_ptr_->objects[i].velocity.linear.x;
+            obstacles.push_back(tmp);
+          }
+
+          is_collide = collision_checker_ptr_->check(trajectory, obstacles, ego_vehicle_ptr_, collision_time_distance_result);
+        }
+
+        if(is_collide)
+          ROS_INFO("Collide");
+        else
+          ROS_INFO("Not Collide");
+
+        double collisionTime=0.0;
         double collisionDistance = 0.0;
-        double safeTime = 0.0;
 
         //Output the information
         std::cout << "==================== Size: " << N  << "======================"<< std::endl;

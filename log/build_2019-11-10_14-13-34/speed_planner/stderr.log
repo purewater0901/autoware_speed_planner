@@ -1,0 +1,6 @@
+In file included from [01m[K/home/yutaka/autoware.ai/src/autoware/core_planning/speed_planner/include/speed_planner/speed_planner_node.h:20:0[m[K,
+                 from [01m[K/home/yutaka/autoware.ai/src/autoware/core_planning/speed_planner/src/speed_planner_node.cpp:1[m[K:
+[01m[K/home/yutaka/autoware.ai/src/autoware/core_planning/speed_planner/include/speed_planner/trajectory_loader.h:8:7:[m[K [01;35m[Kwarning: [m[K‘[01m[KTrajectoryLoader[m[K’ has a field ‘[01m[KTrajectoryLoader::spline_x_[m[K’ whose type uses the anonymous namespace
+ class TrajectoryLoader
+[01;32m[K       ^[m[K
+[01m[K/home/yutaka/autoware.ai/src/autoware/core_planning/speed_planner/include/speed_planner/trajectory_loader.h:8:7:[m[K [01;35m[Kwarning: [m[K‘[01m[KTrajectoryLoader[m[K’ has a field ‘[01m[KTrajectoryLoader::spline_y_[m[K’ whose type uses the anonymous namespace
