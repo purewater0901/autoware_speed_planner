@@ -19,8 +19,8 @@ SpeedPlannerNode::SpeedPlannerNode() : nh_(), private_nh_("~"), isInitialize_(fa
     private_nh_.param<double>("mass", mass, 1500.0);
     private_nh_.param<double>("mu", mu, 0.8);
     private_nh_.param<double>("ds", ds, 0.1);
-    private_nh_.param<double>("preview_distance", previewDistance, 20);
-    private_nh_.param<double>("curvature_weight", curvatureWeight_, 20);
+    private_nh_.param<double>("preview_distance", previewDistance, 20.0);
+    private_nh_.param<double>("curvature_weight", curvatureWeight_, 20.0);
     private_nh_.param<double>("decay_factor", decayFactor_, 0.8);
     private_nh_.param<double>("time_weight", weight[0], 0.0);
     private_nh_.param<double>("smooth_weight", weight[1], 15.0);
@@ -28,6 +28,10 @@ SpeedPlannerNode::SpeedPlannerNode() : nh_(), private_nh_("~"), isInitialize_(fa
     private_nh_.param<double>("longitudinal_slack_weight", weight[3], 1.0);
     private_nh_.param<double>("lateral_slack_weight", weight[4], 10.0);
     private_nh_.param<double>("lateral_g", lateral_g_, 0.4);
+    private_nh_.param<int>("skip_size", skip_size_, 10);
+    private_nh_.param<int>("smooth_size", smooth_size_, 50);
+
+
 
     speedOptimizer_.reset(new ConvexSpeedOptimizer(previewDistance, ds, mass, mu, weight));
 
@@ -136,9 +140,7 @@ void SpeedPlannerNode::timerCallback(const ros::TimerEvent& e)
 
         //1. create trajectory
         double previewDistance = speedOptimizer_->previewDistance_;
-        int skip_size = 5;
-        int smooth_size = 50;
-        TrajectoryLoader trajectory(x, y, speedOptimizer_->ds_, previewDistance, skip_size, smooth_size);
+        TrajectoryLoader trajectory(x, y, speedOptimizer_->ds_, previewDistance, skip_size_, smooth_size_);
 
         //2. Create Speed Constraints and Acceleration Constraints
         int N = trajectory.size();
@@ -153,21 +155,7 @@ void SpeedPlannerNode::timerCallback(const ros::TimerEvent& e)
         for(size_t i=0; i<Vr.size(); ++i)
         {
             Vr[i] = 5.0;
-            //Vd[i] = Vr[i]/(1+curvatureWeight_*std::fabs(trajectory.curvature_[i]));
-
-            /*
-            double tmpSum = 0.0;
-            for(size_t j=i; j<i+10; ++j)
-            {
-                if(j<Vr.size())
-                  tmpSum += curvatureWeight_*std::pow(decayFactor_, (j-i))*std::fabs(trajectory.curvature_[j]);
-                else
-                  break;
-            }
-            tmpSum+=1.0;
-            Vd[i] = Vr[i]/tmpSum;
-            */
-           Vd[i] = std::min(Vr[i], std::sqrt(lateral_g_/(std::fabs(trajectory.curvature_[i]+1e-6))));
+            Vd[i] = std::min(Vr[i], std::sqrt(lateral_g_/(std::fabs(trajectory.curvature_[i]+1e-6))));
         }
 
         double mu = speedOptimizer_->mu_;

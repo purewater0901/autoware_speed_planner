@@ -11,6 +11,8 @@
     <arg name="curvature_weight" default="10" />
     <arg name="decay_factor" default="0.8" />
     <arg name="lateral_g" default="0.4" />
+    <arg name="skip_size" default="10" />
+    <arg name="smooth_size" default="50" />
     <node pkg="speed_planner" type="speed_planner" name="speed_planner" output="screen">
         <param name="mass" value="$(arg mass)" />
         <param name="mu" value="$(arg mu)" />
@@ -24,5 +26,7 @@
         <param name="curvature_weight" value="$(arg curvature_weight)" />
         <param name="decay_factor" value="$(arg decay_factor)" />
         <param name="lateral_g" value="$(arg lateral_g)" />
+        <param name="skip_size" value="$(arg skip_size)" />
+        <param name="smooth_size" value="$(arg smooth_size)" />
     </node>
 </launch>
