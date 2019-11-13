@@ -43,6 +43,7 @@ SpeedPlannerNode::SpeedPlannerNode() : nh_(), private_nh_("~"), isInitialize_(fa
     speedOptimizer_.reset(new ConvexSpeedOptimizer(previewDistance, ds, mass, mu, weight));
     ego_vehicle_ptr_.reset(new VehicleInfo(vehicle_length, vehicle_width, vehicle_wheel_base,vehicle_safety_distance));
     collision_checker_ptr_.reset(new CollisionChecker());
+    tf2_buffer_ptr_.reset(new tf2_ros::Buffer());
 
     optimized_waypoints_pub_ = nh_.advertise<autoware_msgs::Lane>("final_waypoints", 1, true);
     optimized_waypoints_debug_ = nh_.advertise<geometry_msgs::Twist>("optimized_speed_debug", 1, true);
@@ -89,7 +90,8 @@ void SpeedPlannerNode::objectsCallback(const autoware_msgs::DetectedObjectArray&
     geometry_msgs::TransformStamped objects2map_tf;
     try
     {
-        std::cout << "Transoform" << std::endl;
+        std::cout << "Object frame " << msg.header.frame_id << std::endl;
+        std::cout << "Lane frame " << in_lane_ptr_->header.frame_id << std::endl;
         objects2map_tf = tf2_buffer_ptr_->lookupTransform(
           /*target*/  in_lane_ptr_->header.frame_id, 
           /*src*/ msg.header.frame_id,
