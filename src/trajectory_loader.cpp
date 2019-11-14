@@ -1,6 +1,8 @@
 #include "speed_planner/trajectory_loader.h"
 
-TrajectoryLoader::TrajectoryLoader(const std::vector<double> &x,
+TrajectoryLoader::TrajectoryLoader(const double current_x,
+                                   const double current_y,
+                                   const std::vector<double> &x,
                                    const std::vector<double> &y,
                                    const double ds,
                                    const double required_length,
@@ -15,22 +17,23 @@ TrajectoryLoader::TrajectoryLoader(const std::vector<double> &x,
                                     spline_y_()
 
 {
+    int nearestWayointId = getNearestId(current_x, current_y, x, y);
     double px = 0.0;
     double py = 0.0;
 
-    for(size_t i=0; i<x.size(); ++i)
+    for(size_t id=nearestWayointId; id<x.size(); ++id)
     {
-        double cx = x[i];
-        double cy = y[i];
+        double cx = x[id];
+        double cy = y[id];
 
-        if(i>0)
+        if(id-nearestWayointId>0)
         {
             double dx = cx - px;
             double dy = cy - py;
             trajectory_length_ += std::sqrt(dx*dx + dy*dy);
         }
 
-        if(i%skip_size == 0)
+        if((id-nearestWayointId)%skip_size == 0)
         {
             data_x_.push_back(cx);
             data_y_.push_back(cy);

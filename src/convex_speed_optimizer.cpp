@@ -47,7 +47,7 @@ bool ConvexSpeedOptimizer::calcOptimizedSpeed(TrajectoryLoader& trajectory,
         variables.resize(variableSize);
         variables[0] = model.addVar(V0*V0, V0*V0, 0.0, GRB_CONTINUOUS, "b"+std::to_string(0));
         for(int i=1; i<N; ++i)
-            variables[i] = model.addVar(0.0, Vr[i]*Vr[i], 0.0, GRB_CONTINUOUS, "b"+std::to_string(i));
+            variables[i] = model.addVar(0.0, (Vr[i])*(Vr[i]), 0.0, GRB_CONTINUOUS, "b"+std::to_string(i));
 
         variables[N] = model.addVar(a0, a0, a0, GRB_CONTINUOUS, "a0");
         for(int i=N+1; i<2*N-1; ++i)

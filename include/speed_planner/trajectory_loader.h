@@ -4,11 +4,14 @@
 #include <vector>
 #include <cmath>
 #include "speed_planner/spline.h"
+#include "speed_planner/utils.h"
 
 class TrajectoryLoader
 {
 public:
-    TrajectoryLoader(const std::vector<double>& x,
+    TrajectoryLoader(const double currnet_x,
+                     const double current_y,
+                     const std::vector<double>& x,
                      const std::vector<double>& y,
                      const double ds,
                      const double required_length,

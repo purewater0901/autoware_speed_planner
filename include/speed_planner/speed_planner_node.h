@@ -17,11 +17,15 @@
 #include <tf/transform_datatypes.h>
 #include <tf2_ros/transform_listener.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+#include <std_msgs/Float64.h>
+#include <std_msgs/Float32.h>
 #include "speed_planner/trajectory_loader.h"
 #include "speed_planner/convex_speed_optimizer.h"
 #include "speed_planner/obstacle.h"
 #include "speed_planner/vehicle_info.h"
 #include "speed_planner/collision_checker.h"
+#include "speed_planner/trajectory.h"
+#include "speed_planner/utils.h"
 
 class SpeedPlannerNode
 {
@@ -34,6 +38,7 @@ class SpeedPlannerNode
         ros::Publisher optimized_waypoints_pub_;
         ros::Publisher desired_velocity_pub_;
         ros::Publisher optimized_waypoints_debug_;
+        ros::Publisher curvature_pub_;
         ros::Subscriber current_status_sub_;
         ros::Subscriber current_pose_sub_;
         ros::Subscriber current_velocity_sub_;
@@ -55,6 +60,7 @@ class SpeedPlannerNode
         std::unique_ptr<ConvexSpeedOptimizer> speedOptimizer_;
         std::unique_ptr<VehicleInfo> ego_vehicle_ptr_;
         std::unique_ptr<CollisionChecker> collision_checker_ptr_;
+        std::unique_ptr<Trajectory> previous_trajectory_;
 
         void waypointsCallback(const autoware_msgs::Lane& msg);
         void objectsCallback(const autoware_msgs::DetectedObjectArray& msg);
