@@ -1,6 +1,6 @@
 #include "speed_planner/collision_checker.h"
 
-bool CollisionChecker::check(TrajectoryLoader& trajectory, 
+bool CollisionChecker::check(Trajectory& trajectory, 
                              const std::vector<Obstacle>& obstacles,
                              const std::unique_ptr<VehicleInfo>& ego_vehicle,
                              std::pair<double, double>& result)
@@ -8,10 +8,10 @@ bool CollisionChecker::check(TrajectoryLoader& trajectory,
     if(obstacles.empty())
         return false;
 
-    int check_interval_size = 1.0/trajectory.get_ds();
+    int check_interval_size = 1.0/0.1;
     for(Obstacle obstacle : obstacles)
     {
-        for(size_t i=0; i<trajectory.size(); i+=check_interval_size)
+        for(size_t i=0; i<trajectory.x_.size(); i+=check_interval_size)
         {
             //step1 check the largest radius around the vehicle
             double x = trajectory.x_[i];  //vehicle center's x coordinate 

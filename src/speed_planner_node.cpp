@@ -47,7 +47,8 @@ SpeedPlannerNode::SpeedPlannerNode() : nh_(), private_nh_("~"), isInitialize_(fa
 
     optimized_waypoints_pub_ = nh_.advertise<autoware_msgs::Lane>("final_waypoints", 1, true);
     optimized_waypoints_debug_ = nh_.advertise<geometry_msgs::Twist>("optimized_speed_debug", 1, true);
-    desired_velocity_pub_ = nh_.advertise<geometry_msgs::Twist>("desired_velocity", 1, true);
+    result_velocity_pub_ = nh_.advertise<std_msgs::Float32>("result_velocity", 1, true);
+    desired_velocity_pub_ = nh_.advertise<std_msgs::Float32>("desired_velocity", 1, true);
     curvature_pub_ = nh_.advertise<std_msgs::Float32>("curvature", 1, true);
 
     final_waypoints_sub_ = nh_.subscribe("safety_waypoints", 1, &SpeedPlannerNode::waypointsCallback, this);
@@ -125,6 +126,8 @@ void SpeedPlannerNode::timerCallback(const ros::TimerEvent& e)
         int waypointSize = in_lane_ptr_->waypoints.size();
         std::vector<double> waypoint_x(waypointSize, 0.0);
         std::vector<double> waypoint_y(waypointSize, 0.0);
+        std::vector<double> waypoint_yaw(waypointSize, 0.0);
+        std::vector<double> waypoint_curvature(waypointSize, 0.0);
         double current_x = in_pose_ptr_->pose.position.x;
         double current_y = in_pose_ptr_->pose.position.y;
 
@@ -132,50 +135,29 @@ void SpeedPlannerNode::timerCallback(const ros::TimerEvent& e)
         {
             waypoint_x[id] = in_lane_ptr_->waypoints[id].pose.pose.position.x;
             waypoint_y[id] = in_lane_ptr_->waypoints[id].pose.pose.position.y;
+            waypoint_yaw[id] = tf::getYaw(in_lane_ptr_->waypoints[id].pose.pose.orientation);
+            waypoint_curvature[id] = in_lane_ptr_->waypoints[id].pose.pose.position.z;
         }
         
         //1. create trajectory
-        TrajectoryLoader trajectory(current_x, current_y, waypoint_x, waypoint_y, speedOptimizer_->ds_, speedOptimizer_->previewDistance_, skip_size_, smooth_size_);
+        //TrajectoryLoader trajectory(current_x, current_y, waypoint_x, waypoint_y, speedOptimizer_->ds_, speedOptimizer_->previewDistance_, skip_size_, smooth_size_);
+        int nearest_waypoint_id = getNearestId(current_x, current_y, waypoint_x, waypoint_y);
+        Trajectory trajectory(waypoint_x, waypoint_y, waypoint_yaw, waypoint_curvature, nearest_waypoint_id);
 
-        //2. Create Speed Constraints and Acceleration Constraints
-        int N = trajectory.size();
-        std::vector<double> Vr(N, 0.0);     //restricted speed array
-        std::vector<double> Vd(N, 0.0);     //desired speed array
-        std::vector<double> Arlon(N, 0.0);  //acceleration longitudinal restriction
-        std::vector<double> Arlat(N, 0.0);  //acceleration lateral restriction
-        std::vector<double> Aclon(N, 0.0);  //comfort longitudinal acceleration restriction
-        std::vector<double> Aclat(N, 0.0);  //comfort lateral acceleration restriction
-
-        for(size_t i=0; i<Vr.size(); ++i)
-        {
-            Vr[i] = 5.0;
-            Vd[i] = std::min(Vr[i]-0.1, std::sqrt(lateral_g_/(std::fabs(trajectory.curvature_[i]+1e-6))));
-        }
-
-        double mu = speedOptimizer_->mu_;
-        for(size_t i=0; i<N; ++i)
-        {
-            Arlon[i] = 0.5*mu*9.83;
-            Arlat[i] = 0.5*mu*9.83;
-            Aclon[i] = 0.4*mu*9.83;
-            Aclat[i] = 0.4*mu*9.83;
-        }
-
-        //3. initial speed and initial acceleration
+        //2. initial speed and initial acceleration
         //initial velocity
+        int nearest_previous_point_id=0;
         double v0;
         if(previous_trajectory_==nullptr)
           double v0 = in_twist_ptr_->twist.linear.x;
         else
         {
-          int nearest_point_id = getNearestId(current_x, 
-                                              current_y, 
-                                              previous_trajectory_->x_,
-                                              previous_trajectory_->y_, 2);
-          ROS_INFO("Nearest id is %d", nearest_point_id);
-          v0 = previous_trajectory_->velocity_[nearest_point_id];
+          nearest_previous_point_id = getNearestId(current_x, current_y, previous_trajectory_->x_, previous_trajectory_->y_, 2);
+          ROS_INFO("Nearest id is %d", nearest_previous_point_id);
+          v0 = previous_trajectory_->velocity_[nearest_previous_point_id];
         }
         
+        ROS_INFO("Value of v0: %f", v0);
         ROS_INFO("Current Velocity: %f", in_twist_ptr_->twist.linear.x);
 
         double a0 = 0.0;
@@ -188,6 +170,32 @@ void SpeedPlannerNode::timerCallback(const ros::TimerEvent& e)
         {
           a0 = (v0-previousVelocity_)/timer_callback_dt_;
           previousVelocity_ = v0;
+        }
+
+        //3. Create Speed Constraints and Acceleration Constraints
+        int N = trajectory.x_.size();
+        std::vector<double> Vr(N, 0.0);     //restricted speed array
+        std::vector<double> Vd(N, 0.0);     //desired speed array
+        std::vector<double> Arlon(N, 0.0);  //acceleration longitudinal restriction
+        std::vector<double> Arlat(N, 0.0);  //acceleration lateral restriction
+        std::vector<double> Aclon(N, 0.0);  //comfort longitudinal acceleration restriction
+        std::vector<double> Aclat(N, 0.0);  //comfort lateral acceleration restriction
+
+        Vr[0] = 5.0;
+        Vd[0] = v0;
+        for(size_t i=1; i<Vr.size(); ++i)
+        {
+            Vr[i] = 5.0;
+            Vd[i] = std::min(Vr[i]-0.1, std::sqrt(lateral_g_/(std::fabs(trajectory.curvature_[i]+1e-10))));
+        }
+
+        double mu = speedOptimizer_->mu_;
+        for(size_t i=0; i<N; ++i)
+        {
+            Arlon[i] = 0.5*mu*9.83;
+            Arlat[i] = 0.5*mu*9.83;
+            Aclon[i] = 0.4*mu*9.83;
+            Aclat[i] = 0.4*mu*9.83;
         }
 
         //4. dyanmic obstacles
@@ -226,23 +234,24 @@ void SpeedPlannerNode::timerCallback(const ros::TimerEvent& e)
         //////////////////////////////////////////////////////////////////////////////////////////
         ////////////////////////////////Calculate Optimized Speed////////////////////////////////
         std::vector<double> result(N, 0.0);
-        if(!speedOptimizer_->calcOptimizedSpeed(trajectory, result, Vr, Vd, Arlon, Arlat, Aclon, Aclat, v0, a0, collisionTime, collisionDistance, safeTime))
-            return;
+        bool is_result = speedOptimizer_->calcOptimizedSpeed(trajectory, result, Vr, Vd, Arlon, Arlat, Aclon, Aclat, a0, collisionTime, collisionDistance, safeTime);
 
-        //5. set result
-        autoware_msgs::Lane speedOptimizedLane;
-        speedOptimizedLane.lane_id = in_lane_ptr_->lane_id;
-        speedOptimizedLane.lane_index = in_lane_ptr_->lane_index;
-        speedOptimizedLane.is_blocked = in_lane_ptr_->is_blocked;
-        speedOptimizedLane.increment = in_lane_ptr_->increment;
-        speedOptimizedLane.header = in_lane_ptr_->header;
-        speedOptimizedLane.cost = in_lane_ptr_->cost;
-        speedOptimizedLane.closest_object_distance = in_lane_ptr_->closest_object_distance;
-        speedOptimizedLane.closest_object_velocity = in_lane_ptr_->closest_object_velocity;
-        speedOptimizedLane.waypoints.reserve(result.size());
-
-        for(int i=0; i<N; i++)
+        if(is_result)
         {
+          //5. set result
+          autoware_msgs::Lane speedOptimizedLane;
+          speedOptimizedLane.lane_id = in_lane_ptr_->lane_id;
+          speedOptimizedLane.lane_index = in_lane_ptr_->lane_index;
+          speedOptimizedLane.is_blocked = in_lane_ptr_->is_blocked;
+          speedOptimizedLane.increment = in_lane_ptr_->increment;
+          speedOptimizedLane.header = in_lane_ptr_->header;
+          speedOptimizedLane.cost = in_lane_ptr_->cost;
+          speedOptimizedLane.closest_object_distance = in_lane_ptr_->closest_object_distance;
+          speedOptimizedLane.closest_object_velocity = in_lane_ptr_->closest_object_velocity;
+          speedOptimizedLane.waypoints.reserve(result.size());
+
+          for(int i=0; i<N; i++)
+          {
             //result[i] = std::min(std::max(result[i], 0.5), 4.9);
             result[i] = std::min(result[i] ,4.9);
             autoware_msgs::Waypoint waypoint;
@@ -255,22 +264,58 @@ void SpeedPlannerNode::timerCallback(const ros::TimerEvent& e)
             waypoint.twist.twist.linear.x = result[i];
 
             speedOptimizedLane.waypoints.push_back(waypoint);
-        }
+          }
 
-        if(!result.empty())
-        {
-            geometry_msgs::Twist desired_velocity;
-            desired_velocity.linear.x = result[0];
-
+          if(!result.empty())
+          {
+            std_msgs::Float32 result_velocity;
+            result_velocity.data = result[0];
+            result_velocity_pub_.publish(result_velocity);
+            std_msgs::Float32 desired_velocity;
+            desired_velocity.data = Vd[2];
             desired_velocity_pub_.publish(desired_velocity);
+          }
+
+          optimized_waypoints_pub_.publish(speedOptimizedLane);
+          previous_trajectory_.reset(new Trajectory(waypoint_x, waypoint_y, waypoint_yaw, waypoint_curvature, result));
+
+          std_msgs::Float32 curvature;
+          curvature.data = trajectory.curvature_[0];
+          curvature_pub_.publish(curvature);
         }
+        else
+        {
+          ROS_INFO("Gurobi Fialed");
+          //"if gurobi failed calculation"
+          if(previous_trajectory_==nullptr)
+            return;
 
-        optimized_waypoints_pub_.publish(speedOptimizedLane);
-        previous_trajectory_.reset(new Trajectory(trajectory.x_, trajectory.y_, result));
+          //5. set previous result
+          autoware_msgs::Lane speedOptimizedLane;
+          speedOptimizedLane.lane_id = in_lane_ptr_->lane_id;
+          speedOptimizedLane.lane_index = in_lane_ptr_->lane_index;
+          speedOptimizedLane.is_blocked = in_lane_ptr_->is_blocked;
+          speedOptimizedLane.increment = in_lane_ptr_->increment;
+          speedOptimizedLane.header = in_lane_ptr_->header;
+          speedOptimizedLane.cost = in_lane_ptr_->cost;
+          speedOptimizedLane.closest_object_distance = in_lane_ptr_->closest_object_distance;
+          speedOptimizedLane.closest_object_velocity = in_lane_ptr_->closest_object_velocity;
+          speedOptimizedLane.waypoints.reserve(trajectory.x_.size());
 
-        std_msgs::Float32 curvature;
-        curvature.data = trajectory.curvature_[0];
-        curvature_pub_.publish(curvature);
+          for(int i=nearest_previous_point_id; i<N; i++)
+          {
+            autoware_msgs::Waypoint waypoint;
+            waypoint.pose.pose.position.x = trajectory.x_[i-nearest_previous_point_id];
+            waypoint.pose.pose.position.y = trajectory.y_[i-nearest_previous_point_id];
+            waypoint.pose.pose.position.z = in_lane_ptr_->waypoints[0].pose.pose.position.z;
+            waypoint.pose.pose.orientation = tf::createQuaternionMsgFromYaw(trajectory.yaw_[i-nearest_previous_point_id]);
+            waypoint.pose.header = in_lane_ptr_->header;
+            waypoint.twist.header=in_lane_ptr_->header;
+            waypoint.twist.twist.linear.x = previous_trajectory_->velocity_[i];
+
+            speedOptimizedLane.waypoints.push_back(waypoint);
+          }
+        }
     }
 
 }

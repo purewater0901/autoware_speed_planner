@@ -10,6 +10,8 @@ public:
     Trajectory() {};
     Trajectory(const std::vector<double> current_trajectory_x, 
                const std::vector<double> current_trajectory_y,
+               const std::vector<double> current_trajectory_yaw,
+               const std::vector<double> current_trajectory_curvature,
                const std::vector<double>& calculated_velocity)
     {
         assert(current_trajectory_x.size() == calculated_velocity.size());
@@ -17,41 +19,51 @@ public:
 
         x_.resize(current_trajectory_x.size());
         y_.resize(current_trajectory_y.size());
+        yaw_.resize(current_trajectory_y.size());
+        curvature_.resize(current_trajectory_y.size());
         velocity_.resize(calculated_velocity.size());
 
         for(int i=0; i<current_trajectory_x.size(); ++i)
         {
             x_[i] = current_trajectory_x[i];
             y_[i] = current_trajectory_y[i];
+            yaw_[i] = current_trajectory_yaw[i];
+            curvature_[i] = current_trajectory_curvature[i];
         }
 
         for(int i=0; i<velocity_.size(); ++i)
             velocity_[i] = calculated_velocity[i];
     }
+
+    Trajectory(const std::vector<double> current_trajectory_x, 
+               const std::vector<double> current_trajectory_y,
+               const std::vector<double> current_trajectory_yaw,
+               const std::vector<double> current_trajectory_curvature,
+               const int nearest_id)
+    {
+        int required_size = current_trajectory_x.size()-nearest_id;
+        x_.reserve(required_size);
+        y_.reserve(required_size);
+        yaw_.reserve(required_size);
+        curvature_.reserve(required_size);
+        velocity_.reserve(required_size);
+
+        for(int i=nearest_id; i<current_trajectory_x.size(); ++i)
+        {
+            x_.push_back(current_trajectory_x[i]);
+            y_.push_back(current_trajectory_y[i]);
+            yaw_.push_back(current_trajectory_yaw[i]);
+            curvature_.push_back(current_trajectory_curvature[i]);
+        }
+    }
+
 
     ~Trajectory() = default;
 
-    void set(const TrajectoryLoader& current_trajectory, const std::vector<double>& calculated_velocity)
-    {
-        assert(current_trajectory.x_.size() == calculated_velocity.size());
-        assert(current_trajectory.y_.size() == calculated_velocity.size());
-
-        x_.resize(current_trajectory.x_.size());
-        y_.resize(current_trajectory.y_.size());
-        velocity_.resize(calculated_velocity.size());
-
-        for(int i=0; i<current_trajectory.x_.size(); ++i)
-        {
-            x_[i] = current_trajectory.x_[i];
-            y_[i] = current_trajectory.y_[i];
-        }
-
-        for(int i=0; i<velocity_.size(); ++i)
-            velocity_[i] = calculated_velocity[i];
-    }
-
     std::vector<double> x_;
     std::vector<double> y_;
+    std::vector<double> yaw_;
+    std::vector<double> curvature_;
     std::vector<double> velocity_;
 };
 

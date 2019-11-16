@@ -36,9 +36,10 @@ class SpeedPlannerNode
     private:
         ros::NodeHandle nh_, private_nh_;
         ros::Publisher optimized_waypoints_pub_;
-        ros::Publisher desired_velocity_pub_;
+        ros::Publisher result_velocity_pub_;
         ros::Publisher optimized_waypoints_debug_;
         ros::Publisher curvature_pub_;
+        ros::Publisher desired_velocity_pub_;
         ros::Subscriber current_status_sub_;
         ros::Subscriber current_pose_sub_;
         ros::Subscriber current_velocity_sub_;

@@ -18,7 +18,7 @@ ConvexSpeedOptimizer::ConvexSpeedOptimizer
         ds_ = 0.1;
 }
 
-bool ConvexSpeedOptimizer::calcOptimizedSpeed(TrajectoryLoader& trajectory,
+bool ConvexSpeedOptimizer::calcOptimizedSpeed(Trajectory& trajectory,
                                               std::vector<double>& resultSpeed, 
                                               const std::vector<double>& Vr,
                                               const std::vector<double>& Vd,
@@ -26,13 +26,12 @@ bool ConvexSpeedOptimizer::calcOptimizedSpeed(TrajectoryLoader& trajectory,
                                               const std::vector<double>& Arlat,
                                               const std::vector<double>& Aclon,
                                               const std::vector<double>& Aclat,
-                                              const double V0,
                                               const double a0,
                                               const double collisionTime,
                                               const double collisionDistance,
                                               const double safeTime)
 {
-    int N = trajectory.size();
+    int N = trajectory.x_.size();
     int variableSize = 8*N-1+2*(N-1);
 
     try
@@ -45,7 +44,8 @@ bool ConvexSpeedOptimizer::calcOptimizedSpeed(TrajectoryLoader& trajectory,
         //Create Variables
         std::vector<GRBVar> variables;
         variables.resize(variableSize);
-        variables[0] = model.addVar(V0*V0, V0*V0, 0.0, GRB_CONTINUOUS, "b"+std::to_string(0));
+
+        variables[0] = model.addVar(Vd[0]*Vd[0], Vd[0]*Vd[0], 0.0, GRB_CONTINUOUS, "b"+std::to_string(0));
         for(int i=1; i<N; ++i)
             variables[i] = model.addVar(0.0, (Vr[i])*(Vr[i]), 0.0, GRB_CONTINUOUS, "b"+std::to_string(i));
 
@@ -113,7 +113,7 @@ bool ConvexSpeedOptimizer::calcOptimizedSpeed(TrajectoryLoader& trajectory,
         for(int i=0; i<N; ++i)
         {
             model.addQConstr(variables[i+4*N]*variables[i+4*N]+variables[i+5*N]*variables[i+5*N]<=(mu_*mass_*gravity_)*(mu_*mass_*gravity_),
-                            "qc"+std::to_string(i));
+                            "qcfc"+std::to_string(i));
             model.addConstr(variables[i+4*N]<=mass_*Arlon[i], "c"+std::to_string(i+3*N));
         }
 
