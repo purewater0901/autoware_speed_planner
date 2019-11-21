@@ -19,7 +19,8 @@ ConvexSpeedOptimizer::ConvexSpeedOptimizer
 }
 
 bool ConvexSpeedOptimizer::calcOptimizedSpeed(Trajectory& trajectory,
-                                              std::vector<double>& resultSpeed, 
+                                              std::vector<double>& result_speed, 
+                                              std::vector<double>& result_acceleration, 
                                               const std::vector<double>& Vr,
                                               const std::vector<double>& Vd,
                                               const std::vector<double>& Arlon,
@@ -33,6 +34,9 @@ bool ConvexSpeedOptimizer::calcOptimizedSpeed(Trajectory& trajectory,
 {
     int N = trajectory.x_.size();
     int variableSize = 8*N-1+2*(N-1);
+
+    assert(result_speed.size() == N);
+    assert(result_acceleration.size() == N);
 
     try
     {
@@ -49,7 +53,7 @@ bool ConvexSpeedOptimizer::calcOptimizedSpeed(Trajectory& trajectory,
         for(int i=1; i<N; ++i)
             variables[i] = model.addVar(0.0, (Vr[i])*(Vr[i]), 0.0, GRB_CONTINUOUS, "b"+std::to_string(i));
 
-        variables[N] = model.addVar(a0, a0, a0, GRB_CONTINUOUS, "a0");
+        variables[N] = model.addVar(a0, a0, 0.0, GRB_CONTINUOUS, "a0");
         for(int i=N+1; i<2*N-1; ++i)
             variables[i] = model.addVar(-Arlon[i-N], Arlon[i-N], 0.0, GRB_CONTINUOUS, "a"+std::to_string(i-N));
         variables[2*N-1] = model.addVar(0.0, 0.0, 0.0, GRB_CONTINUOUS, "a"+std::to_string(N-1));
@@ -159,11 +163,11 @@ bool ConvexSpeedOptimizer::calcOptimizedSpeed(Trajectory& trajectory,
         //Optimization step
         model.optimize();
 
-        if(resultSpeed.size() != N)
-            resultSpeed.resize(N);
-
         for(int i=0; i<N; ++i)
-            resultSpeed[i] = std::sqrt(variables[i].get(GRB_DoubleAttr_X));
+        {
+            result_speed[i] = std::sqrt(variables[i].get(GRB_DoubleAttr_X));
+            result_acceleration[i] = variables[i+N].get(GRB_DoubleAttr_X);
+        }
     }
     catch(GRBException e)
     {

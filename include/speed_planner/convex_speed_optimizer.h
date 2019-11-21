@@ -3,6 +3,7 @@
 #include <iostream>
 #include <vector>
 #include <array>
+#include <cassert>
 #include "speed_planner/trajectory_loader.h"
 #include "speed_planner/trajectory.h"
 #include "gurobi_c++.h"
@@ -17,7 +18,8 @@ class ConvexSpeedOptimizer
                         std::array<double, 5>& weight);
 
         bool calcOptimizedSpeed(Trajectory& trajectory,
-                                std::vector<double>& resultSpeed, 
+                                std::vector<double>& result_speed, 
+                                std::vector<double>& result_acceleration, 
                                 const std::vector<double>& Vr,
                                 const std::vector<double>& Vd,
                                 const std::vector<double>& Arlon,

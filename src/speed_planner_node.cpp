@@ -9,7 +9,7 @@ int main(int argc, char** argv)
     return 0;
 }
 
-SpeedPlannerNode::SpeedPlannerNode() : nh_(), private_nh_("~"), isInitialize_(false), timer_callback_dt_(0.1), previous_trajectory_()
+SpeedPlannerNode::SpeedPlannerNode() : nh_(), private_nh_("~"), timer_callback_dt_(0.1), previous_trajectory_()
 {
     double mass;
     double mu;
@@ -147,30 +147,28 @@ void SpeedPlannerNode::timerCallback(const ros::TimerEvent& e)
         //2. initial speed and initial acceleration
         //initial velocity
         int nearest_previous_point_id=0;
-        double v0;
+        double v0 = 0.0;
+        double a0 = 0.0;
+
         if(previous_trajectory_==nullptr)
+        {
           double v0 = in_twist_ptr_->twist.linear.x;
+          previousVelocity_ = v0;
+        }
         else
         {
           nearest_previous_point_id = getNearestId(current_x, current_y, previous_trajectory_->x_, previous_trajectory_->y_, 2);
-          ROS_INFO("Nearest id is %d", nearest_previous_point_id);
           v0 = previous_trajectory_->velocity_[nearest_previous_point_id];
+          a0 = previous_trajectory_->acceleration_[nearest_previous_point_id];
+          previousVelocity_ = v0;
+
+          ROS_INFO("Nearest id is %d", nearest_previous_point_id);
         }
         
         ROS_INFO("Value of v0: %f", v0);
+        ROS_INFO("Value of a0: %f", a0);
         ROS_INFO("Current Velocity: %f", in_twist_ptr_->twist.linear.x);
-
-        double a0 = 0.0;
-        if(!isInitialize_)
-        {
-          isInitialize_ = true;
-          previousVelocity_ = v0;
-        }
-        else
-        {
-          a0 = (v0-previousVelocity_)/timer_callback_dt_;
-          previousVelocity_ = v0;
-        }
+        //a0 = 0.0;
 
         //3. Create Speed Constraints and Acceleration Constraints
         int N = trajectory.x_.size();
@@ -186,7 +184,7 @@ void SpeedPlannerNode::timerCallback(const ros::TimerEvent& e)
         for(size_t i=1; i<Vr.size(); ++i)
         {
             Vr[i] = 5.0;
-            Vd[i] = std::min(Vr[i]-0.1, std::sqrt(lateral_g_/(std::fabs(trajectory.curvature_[i]+1e-10))));
+            Vd[i] = std::max(std::min(Vr[i]-0.5, std::sqrt(lateral_g_/(std::fabs(trajectory.curvature_[i]+1e-10)))), 1.0);
         }
 
         double mu = speedOptimizer_->mu_;
@@ -229,15 +227,17 @@ void SpeedPlannerNode::timerCallback(const ros::TimerEvent& e)
         double collisionDistance = 0.0;
 
         //Output the information
-        std::cout << "==================== Size: " << N  << "======================"<< std::endl;
+        ROS_INFO("Size: %d", N);
 
         //////////////////////////////////////////////////////////////////////////////////////////
         ////////////////////////////////Calculate Optimized Speed////////////////////////////////
-        std::vector<double> result(N, 0.0);
-        bool is_result = speedOptimizer_->calcOptimizedSpeed(trajectory, result, Vr, Vd, Arlon, Arlat, Aclon, Aclat, a0, collisionTime, collisionDistance, safeTime);
+        std::vector<double> result_speed(N, 0.0);
+        std::vector<double> result_acceleration(N, 0.0);
+        bool is_result = speedOptimizer_->calcOptimizedSpeed(trajectory, result_speed, result_acceleration, Vr, Vd, Arlon, Arlat, Aclon, Aclat, a0, collisionTime, collisionDistance, safeTime);
 
         if(is_result)
         {
+          ROS_INFO("Gurobi Success");
           //5. set result
           autoware_msgs::Lane speedOptimizedLane;
           speedOptimizedLane.lane_id = in_lane_ptr_->lane_id;
@@ -248,12 +248,12 @@ void SpeedPlannerNode::timerCallback(const ros::TimerEvent& e)
           speedOptimizedLane.cost = in_lane_ptr_->cost;
           speedOptimizedLane.closest_object_distance = in_lane_ptr_->closest_object_distance;
           speedOptimizedLane.closest_object_velocity = in_lane_ptr_->closest_object_velocity;
-          speedOptimizedLane.waypoints.reserve(result.size());
+          speedOptimizedLane.waypoints.reserve(result_speed.size());
 
           for(int i=0; i<N; i++)
           {
             //result[i] = std::min(std::max(result[i], 0.5), 4.9);
-            result[i] = std::min(result[i] ,4.9);
+            result_speed[i] = std::min(result_speed[i] ,4.9);
             autoware_msgs::Waypoint waypoint;
             waypoint.pose.pose.position.x = trajectory.x_[i];
             waypoint.pose.pose.position.y = trajectory.y_[i];
@@ -261,15 +261,15 @@ void SpeedPlannerNode::timerCallback(const ros::TimerEvent& e)
             waypoint.pose.pose.orientation = tf::createQuaternionMsgFromYaw(trajectory.yaw_[i]);
             waypoint.pose.header = in_lane_ptr_->header;
             waypoint.twist.header=in_lane_ptr_->header;
-            waypoint.twist.twist.linear.x = result[i];
+            waypoint.twist.twist.linear.x = result_speed[i];
 
             speedOptimizedLane.waypoints.push_back(waypoint);
           }
 
-          if(!result.empty())
+          if(!result_speed.empty())
           {
             std_msgs::Float32 result_velocity;
-            result_velocity.data = result[0];
+            result_velocity.data = result_speed[0];
             result_velocity_pub_.publish(result_velocity);
             std_msgs::Float32 desired_velocity;
             desired_velocity.data = Vd[2];
@@ -277,7 +277,7 @@ void SpeedPlannerNode::timerCallback(const ros::TimerEvent& e)
           }
 
           optimized_waypoints_pub_.publish(speedOptimizedLane);
-          previous_trajectory_.reset(new Trajectory(waypoint_x, waypoint_y, waypoint_yaw, waypoint_curvature, result));
+          previous_trajectory_.reset(new Trajectory(waypoint_x, waypoint_y, waypoint_yaw, waypoint_curvature, result_speed, result_acceleration));
 
           std_msgs::Float32 curvature;
           curvature.data = trajectory.curvature_[0];
@@ -286,6 +286,14 @@ void SpeedPlannerNode::timerCallback(const ros::TimerEvent& e)
         else
         {
           ROS_INFO("Gurobi Fialed");
+          std::cout << "Vr[0]: " << Vr[0] << std::endl;
+          std::cout << "Vd[0]: " << Vd[0] << std::endl;
+          std::cout << "Vr[1]: " << Vr[1] << std::endl;
+          std::cout << "Vd[1]: " << Vd[1] << std::endl;
+          std::cout << "Vr[2]: " << Vr[2] << std::endl;
+          std::cout << "Vd[2]: " << Vd[2] << std::endl;
+          std::cout << "V0: " << v0 << std::endl;
+          std::cout << "a0: " << a0 << std::endl;
           //"if gurobi failed calculation"
           if(previous_trajectory_==nullptr)
             return;
@@ -316,6 +324,8 @@ void SpeedPlannerNode::timerCallback(const ros::TimerEvent& e)
             speedOptimizedLane.waypoints.push_back(waypoint);
           }
         }
+
+        ROS_INFO("=======================================================");
     }
 
 }
