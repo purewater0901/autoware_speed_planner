@@ -198,21 +198,35 @@ void SpeedPlannerNode::timerCallback(const ros::TimerEvent& e)
 
         //4. dyanmic obstacles
         double safeTime = 10.0;
-        std::pair<double, double> collision_time_distance_result; //predicted collision time and distance
+        std::pair<double, int> collision_time_distance_result; //predicted collision time and distance
         bool is_collide = false;
 
-        std::vector<Obstacle> obstacles;
         if(in_objects_ptr_ && !in_objects_ptr_->objects.empty())
         {
-          std::cout << "set obstacles " << std::endl;
+          std::vector<std::shared_ptr<Obstacle>> obstacles;
+          obstacles.resize(in_objects_ptr_->objects.size());
+
           for(int i=0; i<in_objects_ptr_->objects.size(); ++i)
           {
-            Obstacle tmp;
-            tmp.x_ = in_objects_ptr_->objects[i].pose.position.x;
-            tmp.y_ = in_objects_ptr_->objects[i].pose.position.y;
-            tmp.radius_ = std::sqrt(std::pow(in_objects_ptr_->objects[i].dimensions.x, 2) + std::pow(in_objects_ptr_->objects[i].dimensions.y, 2));
-            tmp.translational_velocity_ = in_objects_ptr_->objects[i].velocity.linear.x;
-            obstacles.push_back(tmp);
+            if(in_objects_ptr_->objects[i].velocity.linear.x>0.1)
+            {
+              double obstacle_x = in_objects_ptr_->objects[i].pose.position.x;
+              double obstacle_y = in_objects_ptr_->objects[i].pose.position.y;
+              double obstacle_angle    = tf::getYaw(in_objects_ptr_->objects[i].pose.orientation);
+              double obstacle_radius   = std::sqrt(std::pow(in_objects_ptr_->objects[i].dimensions.x, 2) + std::pow(in_objects_ptr_->objects[i].dimensions.y, 2));
+              double obstacle_velocity = in_objects_ptr_->objects[i].velocity.linear.x;
+
+              obstacles[i] = std::make_shared<DynamicObstacle>(obstacle_x, obstacle_y, obstacle_angle, obstacle_radius, obstacle_velocity, 5, 0.5);
+            }
+            else
+            {
+              double obstacle_x = in_objects_ptr_->objects[i].pose.position.x;
+              double obstacle_y = in_objects_ptr_->objects[i].pose.position.y;
+              double obstacle_angle    = tf::getYaw(in_objects_ptr_->objects[i].pose.orientation);
+              double obstacle_radius   = std::sqrt(std::pow(in_objects_ptr_->objects[i].dimensions.x, 2) + std::pow(in_objects_ptr_->objects[i].dimensions.y, 2));
+
+              obstacles[i] = std::make_shared<StaticObstacle>(obstacle_x, obstacle_y, obstacle_angle, obstacle_radius);
+            }
           }
 
           is_collide = collision_checker_ptr_->check(trajectory, obstacles, ego_vehicle_ptr_, collision_time_distance_result);

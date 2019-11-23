@@ -36,7 +36,7 @@ include_directories(
 
 #link_directories(${GUROBI_LIB_DIRECTORY})
 
-add_executable(speed_planner src/speed_planner_node.cpp src/convex_speed_optimizer.cpp src/trajectory_loader.cpp src/collision_checker.cpp src/utils.cpp)
+add_executable(speed_planner src/speed_planner_node.cpp src/convex_speed_optimizer.cpp src/trajectory_loader.cpp src/collision_checker.cpp src/utils.cpp src/obstacle.cpp)
 #target_link_libraries (speed_planner gurobi_c++ gurobi81 ${catkin_LIBRARIES} /opt/gurobi811/linux64/lib/libgurobi_g++5.2.a)
 target_link_libraries (speed_planner ${catkin_LIBRARIES} /opt/gurobi811/linux64/lib/libgurobi_g++5.2.a /opt/gurobi811/linux64/lib/libgurobi81.so)
 add_dependencies(speed_planner ${catkin_EXPORTED_TARGETS})

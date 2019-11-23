@@ -13,10 +13,21 @@ class CollisionChecker
 public:
     CollisionChecker() = default;
     
-    bool check(Trajectory& trajectory, 
-               const std::vector<Obstacle>& obstacles,
+    bool check(const Trajectory& trajectory, 
+               const std::vector<std::shared_ptr<Obstacle>>& obstacles,
                const std::unique_ptr<VehicleInfo>& ego_vehicle,
-               std::pair<double, double>& result);
+               std::pair<double, int>& result);
+
+private:
+    bool static_obstacle_check(const Trajectory& trajectory,
+                               const std::shared_ptr<Obstacle>& obstacle,
+                               const std::unique_ptr<VehicleInfo>& ego_vehicle,
+                               std::pair<double, int>& result);
+
+    bool dynamic_obstacle_check(const Trajectory& trajectory,
+                               const std::shared_ptr<Obstacle>& obstacle,
+                               const std::unique_ptr<VehicleInfo>& ego_vehicle,
+                               std::pair<double, int>& result);
 };
 
 #endif
