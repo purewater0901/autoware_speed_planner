@@ -16,18 +16,18 @@ public:
     bool check(const Trajectory& trajectory, 
                const std::vector<std::shared_ptr<Obstacle>>& obstacles,
                const std::unique_ptr<VehicleInfo>& ego_vehicle,
-               std::pair<double, int>& result);
+               std::pair<int, double>& result);
 
 private:
     bool static_obstacle_check(const Trajectory& trajectory,
                                const std::shared_ptr<Obstacle>& obstacle,
                                const std::unique_ptr<VehicleInfo>& ego_vehicle,
-                               std::pair<double, int>& result);
+                               std::pair<int, double>& result);
 
     bool dynamic_obstacle_check(const Trajectory& trajectory,
                                const std::shared_ptr<Obstacle>& obstacle,
                                const std::unique_ptr<VehicleInfo>& ego_vehicle,
-                               std::pair<double, int>& result);
+                               std::pair<int, double>& result);
 };
 
 #endif

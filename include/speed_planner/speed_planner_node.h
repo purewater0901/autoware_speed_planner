@@ -49,7 +49,7 @@ class SpeedPlannerNode
         ros::Timer timer_;
 
         std::unique_ptr<tf2_ros::Buffer> tf2_buffer_ptr_;
-        std::unique_ptr<tf2_ros::TransformListener> tf2_listener_ptr_;
+        std::unique_ptr<tf2_ros::TransformListener> tf2_listner_ptr_;
   
         std::unique_ptr<autoware_msgs::Lane> in_lane_ptr_;
         std::unique_ptr<autoware_msgs::VehicleStatus> in_status_ptr_;
@@ -75,6 +75,7 @@ class SpeedPlannerNode
         double previousVelocity_;
         double timer_callback_dt_;
         double lateral_g_;
+        double max_speed_;
         int skip_size_;
         int smooth_size_;
 };
