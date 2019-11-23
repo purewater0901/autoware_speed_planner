@@ -93,11 +93,9 @@ void SpeedPlannerNode::objectsCallback(const autoware_msgs::DetectedObjectArray&
     geometry_msgs::TransformStamped objects2map_tf;
     try
     {
-        std::cout << "Object frame " << msg.header.frame_id << std::endl;
-        std::cout << "Lane frame " << in_lane_ptr_->header.frame_id << std::endl;
         objects2map_tf = tf2_buffer_ptr_->lookupTransform(
           /*target*/  in_lane_ptr_->header.frame_id,  //map
-          /*src*/ msg.header.frame_id,                //world
+          /*src*/ msg.objects.begin()->header.frame_id,  //lidar
           ros::Time(0));
     }
     catch (tf2::TransformException &ex)
@@ -116,9 +114,6 @@ void SpeedPlannerNode::objectsCallback(const autoware_msgs::DetectedObjectArray&
       geometry_msgs::PoseStamped transformed_pose;
       tf2::doTransform(current_object_pose, transformed_pose, objects2map_tf);
       object.pose = transformed_pose.pose;
-      ROS_INFO("Before transform");
-      ROS_INFO("x: %f", current_object_pose.pose.position.x);
-      ROS_INFO("y: %f", current_object_pose.pose.position.y);
     }
   }
 }
@@ -212,10 +207,6 @@ void SpeedPlannerNode::timerCallback(const ros::TimerEvent& e)
             Obstacle tmp;
             tmp.x_ = in_objects_ptr_->objects[i].pose.position.x;
             tmp.y_ = in_objects_ptr_->objects[i].pose.position.y;
-            ROS_INFO("Objects position in x coordinate %f", tmp.x_);
-            ROS_INFO("Objects position in y coordinate %f", tmp.y_);
-            ROS_INFO("Current Vehicle position in x coordinate %f", in_pose_ptr_->pose.position.x);
-            ROS_INFO("Current Vehicle position in y coordinate %f", in_pose_ptr_->pose.position.y);
             tmp.radius_ = std::sqrt(std::pow(in_objects_ptr_->objects[i].dimensions.x, 2) + std::pow(in_objects_ptr_->objects[i].dimensions.y, 2));
             tmp.translational_velocity_ = in_objects_ptr_->objects[i].velocity.linear.x;
             obstacles.push_back(tmp);
