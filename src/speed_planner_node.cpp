@@ -44,6 +44,7 @@ SpeedPlannerNode::SpeedPlannerNode() : nh_(), private_nh_("~"), timer_callback_d
     ego_vehicle_ptr_.reset(new VehicleInfo(vehicle_length, vehicle_width, vehicle_wheel_base,vehicle_safety_distance));
     collision_checker_ptr_.reset(new CollisionChecker());
     tf2_buffer_ptr_.reset(new tf2_ros::Buffer());
+    tf2_listner_ptr_.reset(new tf2_ros::TransformListener(*tf2_buffer_ptr_));
 
     optimized_waypoints_pub_ = nh_.advertise<autoware_msgs::Lane>("final_waypoints", 1, true);
     optimized_waypoints_debug_ = nh_.advertise<geometry_msgs::Twist>("optimized_speed_debug", 1, true);
@@ -95,8 +96,8 @@ void SpeedPlannerNode::objectsCallback(const autoware_msgs::DetectedObjectArray&
         std::cout << "Object frame " << msg.header.frame_id << std::endl;
         std::cout << "Lane frame " << in_lane_ptr_->header.frame_id << std::endl;
         objects2map_tf = tf2_buffer_ptr_->lookupTransform(
-          /*target*/  in_lane_ptr_->header.frame_id, 
-          /*src*/ msg.header.frame_id,
+          /*target*/  in_lane_ptr_->header.frame_id,  //map
+          /*src*/ msg.header.frame_id,                //world
           ros::Time(0));
     }
     catch (tf2::TransformException &ex)
@@ -115,6 +116,9 @@ void SpeedPlannerNode::objectsCallback(const autoware_msgs::DetectedObjectArray&
       geometry_msgs::PoseStamped transformed_pose;
       tf2::doTransform(current_object_pose, transformed_pose, objects2map_tf);
       object.pose = transformed_pose.pose;
+      ROS_INFO("Before transform");
+      ROS_INFO("x: %f", current_object_pose.pose.position.x);
+      ROS_INFO("y: %f", current_object_pose.pose.position.y);
     }
   }
 }
@@ -168,7 +172,6 @@ void SpeedPlannerNode::timerCallback(const ros::TimerEvent& e)
         ROS_INFO("Value of v0: %f", v0);
         ROS_INFO("Value of a0: %f", a0);
         ROS_INFO("Current Velocity: %f", in_twist_ptr_->twist.linear.x);
-        //a0 = 0.0;
 
         //3. Create Speed Constraints and Acceleration Constraints
         int N = trajectory.x_.size();
@@ -204,12 +207,15 @@ void SpeedPlannerNode::timerCallback(const ros::TimerEvent& e)
         std::vector<Obstacle> obstacles;
         if(in_objects_ptr_ && !in_objects_ptr_->objects.empty())
         {
-          std::cout << "set obstacles " << std::endl;
           for(int i=0; i<in_objects_ptr_->objects.size(); ++i)
           {
             Obstacle tmp;
             tmp.x_ = in_objects_ptr_->objects[i].pose.position.x;
             tmp.y_ = in_objects_ptr_->objects[i].pose.position.y;
+            ROS_INFO("Objects position in x coordinate %f", tmp.x_);
+            ROS_INFO("Objects position in y coordinate %f", tmp.y_);
+            ROS_INFO("Current Vehicle position in x coordinate %f", in_pose_ptr_->pose.position.x);
+            ROS_INFO("Current Vehicle position in y coordinate %f", in_pose_ptr_->pose.position.y);
             tmp.radius_ = std::sqrt(std::pow(in_objects_ptr_->objects[i].dimensions.x, 2) + std::pow(in_objects_ptr_->objects[i].dimensions.y, 2));
             tmp.translational_velocity_ = in_objects_ptr_->objects[i].velocity.linear.x;
             obstacles.push_back(tmp);
