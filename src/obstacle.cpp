@@ -24,7 +24,7 @@ std::vector<std::pair<double, std::pair<double, double>>> StaticObstacle::getPos
 
     position[0].first = 0.0;
     position[0].second.first  = x_;
-    position[1].second.second = y_;
+    position[0].second.second = y_;
 
     return position;
 }

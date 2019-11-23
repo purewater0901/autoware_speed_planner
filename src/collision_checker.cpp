@@ -21,10 +21,12 @@ bool CollisionChecker::check(const Trajectory& trajectory,
     return is_collide;
 }
 
-bool CollisionChecker::static_obstacle_check(const Trajectory& trajectory,
-                                             const std::shared_ptr<Obstacle>& obstacle,
-                                             const std::unique_ptr<VehicleInfo>& ego_vehicle,
-                                             std::pair<int, double>& result)
+bool CollisionChecker::collision_checker(const Trajectory& trajectory,
+                                         const std::unique_ptr<VehicleInfo>& ego_vehicle,
+                                         const double obstacle_x,
+                                         const double obstacle_y,
+                                         const double obstacle_radius,
+                                         std::pair<int, double>& result)
 {
     int check_interval_size = 1.0/0.1;
     for(size_t i=0; i<trajectory.x_.size(); i+=check_interval_size)
@@ -33,9 +35,6 @@ bool CollisionChecker::static_obstacle_check(const Trajectory& trajectory,
         double x = trajectory.x_[i];  //vehicle center's x coordinate 
         double y = trajectory.y_[i];  //vehicle center's y coordinate
         double yaw = trajectory.yaw_[i];
-        double obstacle_x = obstacle->getPosition().begin()->second.first;
-        double obstacle_y = obstacle->getPosition().begin()->second.second;
-        double obstacle_radius = obstacle->getRadius();
         double dist = std::sqrt(std::pow((x - obstacle_x), 2) + std::pow((y - obstacle_y), 2));
         double clearance_radius = ego_vehicle->circumcircle_radius_+ego_vehicle->safety_distance_; //largest_circle + safety_distance
 
@@ -52,7 +51,7 @@ bool CollisionChecker::static_obstacle_check(const Trajectory& trajectory,
                 if(middleDist <= obstacle_radius + middle_clearance_radius)
                 {
                     result.first = i;
-                    result.second = 5.0;
+                    result.second = 0.0;
                     std::cout << "Collide with Middle Circle" << std::endl;
                     return true; //collision
                 }
@@ -101,10 +100,38 @@ bool CollisionChecker::static_obstacle_check(const Trajectory& trajectory,
     return false;
 }
 
+bool CollisionChecker::static_obstacle_check(const Trajectory& trajectory,
+                                             const std::shared_ptr<Obstacle>& obstacle,
+                                             const std::unique_ptr<VehicleInfo>& ego_vehicle,
+                                             std::pair<int, double>& result)
+{
+    std::cout << "This is Static Obstacle" << std::endl;
+    double obstacle_x = obstacle->getPosition().begin()->second.first;
+    double obstacle_y = obstacle->getPosition().begin()->second.second;
+    double obstacle_radius = obstacle->getRadius();
+
+    return collision_checker(trajectory, ego_vehicle, obstacle_x, obstacle_y, obstacle_radius, result);
+}
+
 bool CollisionChecker::dynamic_obstacle_check(const Trajectory& trajectory,
                                               const std::shared_ptr<Obstacle>& obstacle,
                                               const std::unique_ptr<VehicleInfo>& ego_vehicle,
                                               std::pair<int, double>& result)
 {
+    std::cout << "This is Dynamic Obstacle" << std::endl;
+    std::vector<std::pair<double, std::pair<double, double>>> obstacle_trajectory = obstacle->getPosition();
+    double obstacle_radius = obstacle->getRadius();
 
+    bool is_collide = false;
+    for(int i=0 ;i<obstacle_trajectory.size(); ++i)
+    {
+        double obstacle_x = obstacle_trajectory[i].second.first;
+        double obstacle_y = obstacle_trajectory[i].second.second;
+
+        is_collide = collision_checker(trajectory, ego_vehicle, obstacle_x, obstacle_y, obstacle_radius, result);
+        if(is_collide)
+            break;
+    }
+
+    return is_collide;
 }

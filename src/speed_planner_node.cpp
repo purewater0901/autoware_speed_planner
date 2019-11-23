@@ -177,7 +177,7 @@ void SpeedPlannerNode::timerCallback(const ros::TimerEvent& e)
         if(in_objects_ptr_ && !in_objects_ptr_->objects.empty())
         {
           std::vector<std::shared_ptr<Obstacle>> obstacles;
-          obstacles.resize(in_objects_ptr_->objects.size());
+          obstacles.reserve(in_objects_ptr_->objects.size());
 
           for(int i=0; i<in_objects_ptr_->objects.size(); ++i)
           {
@@ -189,7 +189,7 @@ void SpeedPlannerNode::timerCallback(const ros::TimerEvent& e)
               double obstacle_radius   = std::sqrt(std::pow(in_objects_ptr_->objects[i].dimensions.x, 2) + std::pow(in_objects_ptr_->objects[i].dimensions.y, 2));
               double obstacle_velocity = in_objects_ptr_->objects[i].velocity.linear.x;
 
-              obstacles[i] = std::make_shared<DynamicObstacle>(obstacle_x, obstacle_y, obstacle_angle, obstacle_radius, obstacle_velocity, 5, 0.5);
+              obstacles.push_back(std::make_shared<DynamicObstacle>(obstacle_x, obstacle_y, obstacle_angle, obstacle_radius, obstacle_velocity, 5, 0.5));
             }
             else
             {
@@ -198,7 +198,7 @@ void SpeedPlannerNode::timerCallback(const ros::TimerEvent& e)
               double obstacle_angle    = tf::getYaw(in_objects_ptr_->objects[i].pose.orientation);
               double obstacle_radius   = std::sqrt(std::pow(in_objects_ptr_->objects[i].dimensions.x, 2) + std::pow(in_objects_ptr_->objects[i].dimensions.y, 2));
 
-              obstacles[i] = std::make_shared<StaticObstacle>(obstacle_x, obstacle_y, obstacle_angle, obstacle_radius);
+              obstacles.push_back(std::make_shared<StaticObstacle>(obstacle_x, obstacle_y, obstacle_angle, obstacle_radius));
             }
           }
 
