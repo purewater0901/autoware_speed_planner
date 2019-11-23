@@ -17,6 +17,7 @@
     <arg name="vehicle_width" default="1.895" />
     <arg name="vehicle_wheel_base" default="2.790" />
     <arg name="vehicle_safety_distance" default="0.1" />
+    <arg name="max_speed" default="5.0" />
     <node pkg="speed_planner" type="speed_planner" name="speed_planner" output="screen">
         <param name="mass" value="$(arg mass)" />
         <param name="mu" value="$(arg mu)" />
@@ -36,5 +37,6 @@
         <param name="vehicle_width" value="$(arg vehicle_width)" />
         <param name="vehicle_wheel_base" value="$(arg vehicle_wheel_base)" />
         <param name="vehicle_safety_distance" value="$(arg vehicle_safety_distance)" />
+        <param name="max_speed" value="$(arg max_speed)" />
     </node>
 </launch>

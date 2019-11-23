@@ -75,6 +75,7 @@ class SpeedPlannerNode
         double previousVelocity_;
         double timer_callback_dt_;
         double lateral_g_;
+        double max_speed_;
         int skip_size_;
         int smooth_size_;
 };

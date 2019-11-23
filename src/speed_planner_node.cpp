@@ -39,6 +39,7 @@ SpeedPlannerNode::SpeedPlannerNode() : nh_(), private_nh_("~"), timer_callback_d
     private_nh_.param<double>("vehicle_width", vehicle_width, 1.895);
     private_nh_.param<double>("vehicle_wheel_base", vehicle_wheel_base, 2.790);
     private_nh_.param<double>("vehicle_safety_distance", vehicle_safety_distance, 0.1);
+    private_nh_.param<double>("max_speed", max_speed_, 5.0);
 
     speedOptimizer_.reset(new ConvexSpeedOptimizer(previewDistance, ds, mass, mu, weight));
     ego_vehicle_ptr_.reset(new VehicleInfo(vehicle_length, vehicle_width, vehicle_wheel_base,vehicle_safety_distance));
@@ -168,35 +169,9 @@ void SpeedPlannerNode::timerCallback(const ros::TimerEvent& e)
         ROS_INFO("Value of a0: %f", a0);
         ROS_INFO("Current Velocity: %f", in_twist_ptr_->twist.linear.x);
 
-        //3. Create Speed Constraints and Acceleration Constraints
-        int N = trajectory.x_.size();
-        std::vector<double> Vr(N, 0.0);     //restricted speed array
-        std::vector<double> Vd(N, 0.0);     //desired speed array
-        std::vector<double> Arlon(N, 0.0);  //acceleration longitudinal restriction
-        std::vector<double> Arlat(N, 0.0);  //acceleration lateral restriction
-        std::vector<double> Aclon(N, 0.0);  //comfort longitudinal acceleration restriction
-        std::vector<double> Aclat(N, 0.0);  //comfort lateral acceleration restriction
-
-        Vr[0] = 5.0;
-        Vd[0] = v0;
-        for(size_t i=1; i<Vr.size(); ++i)
-        {
-            Vr[i] = 5.0;
-            Vd[i] = std::max(std::min(Vr[i]-0.5, std::sqrt(lateral_g_/(std::fabs(trajectory.curvature_[i]+1e-10)))), 1.0);
-        }
-
-        double mu = speedOptimizer_->mu_;
-        for(size_t i=0; i<N; ++i)
-        {
-            Arlon[i] = 0.5*mu*9.83;
-            Arlat[i] = 0.5*mu*9.83;
-            Aclon[i] = 0.4*mu*9.83;
-            Aclat[i] = 0.4*mu*9.83;
-        }
-
-        //4. dyanmic obstacles
+        //3. dyanmic obstacles
         double safeTime = 10.0;
-        std::pair<double, double> collision_time_distance_result; //predicted collision time and distance
+        std::pair<int, double> collision_info; //predicted collision time and distance
         bool is_collide = false;
 
         std::vector<Obstacle> obstacles;
@@ -212,16 +187,59 @@ void SpeedPlannerNode::timerCallback(const ros::TimerEvent& e)
             obstacles.push_back(tmp);
           }
 
-          is_collide = collision_checker_ptr_->check(trajectory, obstacles, ego_vehicle_ptr_, collision_time_distance_result);
+          is_collide = collision_checker_ptr_->check(trajectory, obstacles, ego_vehicle_ptr_, collision_info);
         }
 
         if(is_collide)
-          ROS_INFO("Collide");
+        {
+          ROS_INFO("Collide Position id is %d", collision_info.first);
+          ROS_INFO("Collision Occured Position is %f", trajectory.x_[collision_info.first]);
+        }
         else
           ROS_INFO("Not Collide");
 
         double collisionTime=0.0;
         double collisionDistance = 0.0;
+
+        //4. Create Speed Constraints and Acceleration Constraints
+        int N = trajectory.x_.size();
+        std::vector<double> Vr(N, 0.0);     //restricted speed array
+        std::vector<double> Vd(N, 0.0);     //desired speed array
+        std::vector<double> Arlon(N, 0.0);  //acceleration longitudinal restriction
+        std::vector<double> Arlat(N, 0.0);  //acceleration lateral restriction
+        std::vector<double> Aclon(N, 0.0);  //comfort longitudinal acceleration restriction
+        std::vector<double> Aclat(N, 0.0);  //comfort lateral acceleration restriction
+
+        if(is_collide)
+        {
+          Vr[0] = max_speed_;
+          Vd[0] = v0;
+          for(int i=1; i<collision_info.first-100; ++i)
+          {
+            Vr[i] = max_speed_;
+            Vd[i] = std::max(std::min(Vr[i]-0.5, std::sqrt(lateral_g_/(std::fabs(trajectory.curvature_[i]+1e-10)))), 1.0);
+          }
+        }
+        else
+        {
+          Vr[0] = max_speed_;
+          Vd[0] = v0;
+          for(size_t i=1; i<Vr.size(); ++i)
+          {
+            Vr[i] = max_speed_;
+            Vd[i] = std::max(std::min(Vr[i]-0.5, std::sqrt(lateral_g_/(std::fabs(trajectory.curvature_[i]+1e-10)))), 1.0);
+          }
+        }
+
+        double mu = speedOptimizer_->mu_;
+        for(size_t i=0; i<N; ++i)
+        {
+            Arlon[i] = 0.5*mu*9.83;
+            Arlat[i] = 0.5*mu*9.83;
+            Aclon[i] = 0.4*mu*9.83;
+            Aclat[i] = 0.4*mu*9.83;
+        }
+
 
         //Output the information
         ROS_INFO("Size: %d", N);

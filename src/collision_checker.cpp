@@ -1,9 +1,9 @@
 #include "speed_planner/collision_checker.h"
 
-bool CollisionChecker::check(Trajectory& trajectory, 
+bool CollisionChecker::check(const Trajectory& trajectory, 
                              const std::vector<Obstacle>& obstacles,
                              const std::unique_ptr<VehicleInfo>& ego_vehicle,
-                             std::pair<double, double>& result)
+                             std::pair<int, double>& result)
 {
     if(obstacles.empty())
         return false;
@@ -32,6 +32,8 @@ bool CollisionChecker::check(Trajectory& trajectory,
 
                     if(middleDist <= obstacle.radius_ + middle_clearance_radius)
                     {
+                        result.first = i;
+                        result.second = 5.0;
                         std::cout << "Collide with Middle Circle" << std::endl;
                         return true; //collision
                     }
@@ -69,6 +71,8 @@ bool CollisionChecker::check(Trajectory& trajectory,
 
                     if(footprintDist<= obstacle.radius_ + footprint_clearance_radius)
                     {
+                        result.first = i;
+                        result.second = 5.0;
                         std::cout << "Collide with Footprint Circle" << std::endl;
                         return true;
                     }

@@ -13,10 +13,10 @@ class CollisionChecker
 public:
     CollisionChecker() = default;
     
-    bool check(Trajectory& trajectory, 
+    bool check(const Trajectory& trajectory, 
                const std::vector<Obstacle>& obstacles,
                const std::unique_ptr<VehicleInfo>& ego_vehicle,
-               std::pair<double, double>& result);
+               std::pair<int, double>& result);
 };
 
 #endif
