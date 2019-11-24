@@ -171,7 +171,8 @@ void SpeedPlannerNode::timerCallback(const ros::TimerEvent& e)
 
         //3. dyanmic obstacles
         double safeTime = 10.0;
-        std::pair<int, double> collision_info; //predicted collision position id and time 
+        //std::pair<int, double> collision_info; //predicted collision position id and time 
+        std::unique_ptr<CollisionInfo> collision_info;
         bool is_collide = false;
 
         if(in_objects_ptr_ && !in_objects_ptr_->objects.empty())
@@ -207,8 +208,9 @@ void SpeedPlannerNode::timerCallback(const ros::TimerEvent& e)
 
         if(is_collide)
         {
-          ROS_INFO("Collide Position id is %d", collision_info.first);
-          ROS_INFO("Collision Occured Position is %f", trajectory.x_[collision_info.first]);
+          assert(collision_info!=nullptr);
+          ROS_INFO("Collide Position id is %d", collision_info->getId());
+          ROS_INFO("Collision Occured Position is %f", trajectory.x_[collision_info->getId()]);
         }
         else
           ROS_INFO("Not Collide");
@@ -225,11 +227,22 @@ void SpeedPlannerNode::timerCallback(const ros::TimerEvent& e)
         std::vector<double> Aclon(N, 0.0);  //comfort longitudinal acceleration restriction
         std::vector<double> Aclat(N, 0.0);  //comfort lateral acceleration restriction
 
-        if(is_collide)
+        if(is_collide && collision_info->getType()==Obstacle::TYPE::STATIC)
         {
           Vr[0] = max_speed_;
           Vd[0] = v0;
-          for(int i=1; i<collision_info.first-100; ++i)
+          for(int i=1; i<collision_info->getId()-100; ++i)
+          {
+            Vr[i] = max_speed_;
+            Vd[i] = std::max(std::min(Vr[i]-0.5, std::sqrt(lateral_g_/(std::fabs(trajectory.curvature_[i]+1e-10)))), 1.0);
+          }
+        }
+        else if (is_collide && collision_info->getType()==Obstacle::TYPE::DYNAMIC)
+        {
+          std::cout << "Dynamic Obstacle" << std::endl;
+          Vr[0] = max_speed_;
+          Vd[0] = v0;
+          for(size_t i=1; i<Vr.size(); ++i)
           {
             Vr[i] = max_speed_;
             Vd[i] = std::max(std::min(Vr[i]-0.5, std::sqrt(lateral_g_/(std::fabs(trajectory.curvature_[i]+1e-10)))), 1.0);

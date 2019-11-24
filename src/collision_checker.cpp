@@ -3,7 +3,7 @@
 bool CollisionChecker::check(const Trajectory& trajectory, 
                              const std::vector<std::shared_ptr<Obstacle>>& obstacles,
                              const std::unique_ptr<VehicleInfo>& ego_vehicle,
-                             std::pair<int, double>& result)
+                             std::unique_ptr<CollisionInfo>& result)
 {
     if(obstacles.empty())
         return false;
@@ -98,7 +98,7 @@ int CollisionChecker::collision_check(const Trajectory& trajectory,
 bool CollisionChecker::static_obstacle_check(const Trajectory& trajectory,
                                              const std::shared_ptr<Obstacle>& obstacle,
                                              const std::unique_ptr<VehicleInfo>& ego_vehicle,
-                                             std::pair<int, double>& result)
+                                             std::unique_ptr<CollisionInfo>& result)
 {
     std::cout << "This is Static Obstacle" << std::endl;
     double obstacle_x = obstacle->getPosition().begin()->second.first;
@@ -109,8 +109,7 @@ bool CollisionChecker::static_obstacle_check(const Trajectory& trajectory,
 
     if(collision_id>=0)
     {
-        result.first = collision_id; //collision position id
-        result.second = 0.0;         //collision time
+        result.reset(new CollisionInfo(Obstacle::TYPE::STATIC, collision_id, 0.0));
         return true;
     }
 
@@ -120,7 +119,7 @@ bool CollisionChecker::static_obstacle_check(const Trajectory& trajectory,
 bool CollisionChecker::dynamic_obstacle_check(const Trajectory& trajectory,
                                               const std::shared_ptr<Obstacle>& obstacle,
                                               const std::unique_ptr<VehicleInfo>& ego_vehicle,
-                                              std::pair<int, double>& result)
+                                              std::unique_ptr<CollisionInfo>& result)
 {
     std::cout << "This is Dynamic Obstacle" << std::endl;
     double obstacle_radius = obstacle->getRadius();
@@ -134,9 +133,7 @@ bool CollisionChecker::dynamic_obstacle_check(const Trajectory& trajectory,
         int collision_id = collision_check(trajectory, ego_vehicle, obstacle_x, obstacle_y, obstacle_radius);
         if(collision_id>=0)
         {
-            result.first = collision_id;                  // collision position id
-            result.second = obstacle_trajectory[i].first; // collision time
-
+            result.reset(new CollisionInfo(Obstacle::TYPE::DYNAMIC, collision_id, obstacle_trajectory[i].first));
             return true;
         }
     }

@@ -8,6 +8,22 @@
 #include "speed_planner/trajectory.h"
 #include "speed_planner/vehicle_info.h"
 
+class CollisionInfo
+{
+public:
+    CollisionInfo(const Obstacle::TYPE type, int collision_position_id, double collision_time)
+                 : type_(type), collision_position_id_(collision_position_id), collision_time_(collision_time) 
+                 {}
+
+    int getId() { return collision_position_id_; }
+    double getTime() { return collision_time_; }
+    Obstacle::TYPE getType() { return type_; }
+
+    Obstacle::TYPE type_;
+    int collision_position_id_;
+    double collision_time_;
+};
+
 class CollisionChecker
 {
 public:
@@ -16,18 +32,18 @@ public:
     bool check(const Trajectory& trajectory, 
                const std::vector<std::shared_ptr<Obstacle>>& obstacles,
                const std::unique_ptr<VehicleInfo>& ego_vehicle,
-               std::pair<int, double>& result);
+               std::unique_ptr<CollisionInfo>& result);
 
 private:
     bool static_obstacle_check(const Trajectory& trajectory,
                                const std::shared_ptr<Obstacle>& obstacle,
                                const std::unique_ptr<VehicleInfo>& ego_vehicle,
-                               std::pair<int, double>& result);
+                               std::unique_ptr<CollisionInfo>& result);
 
     bool dynamic_obstacle_check(const Trajectory& trajectory,
                                const std::shared_ptr<Obstacle>& obstacle,
                                const std::unique_ptr<VehicleInfo>& ego_vehicle,
-                               std::pair<int, double>& result);
+                               std::unique_ptr<CollisionInfo>& result);
 
     int collision_check(const Trajectory& trajectory,
                         const std::unique_ptr<VehicleInfo>& ego_vehicle,
