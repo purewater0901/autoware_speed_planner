@@ -171,7 +171,7 @@ void SpeedPlannerNode::timerCallback(const ros::TimerEvent& e)
 
         //3. dyanmic obstacles
         double safeTime = 10.0;
-        std::pair<int, double> collision_info; //predicted collision time and distance
+        std::pair<int, double> collision_info; //predicted collision position id and time 
         bool is_collide = false;
 
         if(in_objects_ptr_ && !in_objects_ptr_->objects.empty())

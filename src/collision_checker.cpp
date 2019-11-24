@@ -14,19 +14,18 @@ bool CollisionChecker::check(const Trajectory& trajectory,
         Obstacle::TYPE obstacle_type = obstacles[i]->getType(); 
         if(obstacle_type == Obstacle::TYPE::STATIC)
             is_collide = static_obstacle_check(trajectory, obstacles[i], ego_vehicle, result);
-        else
+        else if(obstacle_type == Obstacle::TYPE::DYNAMIC)
             is_collide = dynamic_obstacle_check(trajectory, obstacles[i], ego_vehicle, result);
     }
 
     return is_collide;
 }
 
-bool CollisionChecker::collision_checker(const Trajectory& trajectory,
-                                         const std::unique_ptr<VehicleInfo>& ego_vehicle,
-                                         const double obstacle_x,
-                                         const double obstacle_y,
-                                         const double obstacle_radius,
-                                         std::pair<int, double>& result)
+int CollisionChecker::collision_check(const Trajectory& trajectory,
+                                      const std::unique_ptr<VehicleInfo>& ego_vehicle,
+                                      const double obstacle_x,
+                                      const double obstacle_y,
+                                      const double obstacle_radius)
 {
     int check_interval_size = 1.0/0.1;
     for(size_t i=0; i<trajectory.x_.size(); i+=check_interval_size)
@@ -50,10 +49,8 @@ bool CollisionChecker::collision_checker(const Trajectory& trajectory,
 
                 if(middleDist <= obstacle_radius + middle_clearance_radius)
                 {
-                    result.first = i;
-                    result.second = 0.0;
                     std::cout << "Collide with Middle Circle" << std::endl;
-                    return true; //collision
+                    return i; //collision
                 }
             }
 
@@ -88,16 +85,14 @@ bool CollisionChecker::collision_checker(const Trajectory& trajectory,
 
                 if(footprintDist<= obstacle_radius + footprint_clearance_radius)
                 {
-                    result.first = i;
-                    result.second = 0.0;
                     std::cout << "Collide with Footprint Circle" << std::endl;
-                    return true;
+                    return i;
                 }
             }
         }
     }
 
-    return false;
+    return -1;
 }
 
 bool CollisionChecker::static_obstacle_check(const Trajectory& trajectory,
@@ -110,7 +105,16 @@ bool CollisionChecker::static_obstacle_check(const Trajectory& trajectory,
     double obstacle_y = obstacle->getPosition().begin()->second.second;
     double obstacle_radius = obstacle->getRadius();
 
-    return collision_checker(trajectory, ego_vehicle, obstacle_x, obstacle_y, obstacle_radius, result);
+    int collision_id = collision_check(trajectory, ego_vehicle, obstacle_x, obstacle_y, obstacle_radius);
+
+    if(collision_id>=0)
+    {
+        result.first = collision_id; //collision position id
+        result.second = 0.0;         //collision time
+        return true;
+    }
+
+    return false;
 }
 
 bool CollisionChecker::dynamic_obstacle_check(const Trajectory& trajectory,
@@ -119,19 +123,23 @@ bool CollisionChecker::dynamic_obstacle_check(const Trajectory& trajectory,
                                               std::pair<int, double>& result)
 {
     std::cout << "This is Dynamic Obstacle" << std::endl;
-    std::vector<std::pair<double, std::pair<double, double>>> obstacle_trajectory = obstacle->getPosition();
     double obstacle_radius = obstacle->getRadius();
 
-    bool is_collide = false;
+    std::vector<std::pair<double, std::pair<double, double>>> obstacle_trajectory = obstacle->getPosition();
     for(int i=0 ;i<obstacle_trajectory.size(); ++i)
     {
         double obstacle_x = obstacle_trajectory[i].second.first;
         double obstacle_y = obstacle_trajectory[i].second.second;
 
-        is_collide = collision_checker(trajectory, ego_vehicle, obstacle_x, obstacle_y, obstacle_radius, result);
-        if(is_collide)
-            break;
+        int collision_id = collision_check(trajectory, ego_vehicle, obstacle_x, obstacle_y, obstacle_radius);
+        if(collision_id>=0)
+        {
+            result.first = collision_id;                  // collision position id
+            result.second = obstacle_trajectory[i].first; // collision time
+
+            return true;
+        }
     }
 
-    return is_collide;
+    return false;
 }
