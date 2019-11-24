@@ -9,7 +9,7 @@ int main(int argc, char** argv)
     return 0;
 }
 
-SpeedPlannerNode::SpeedPlannerNode() : nh_(), private_nh_("~"), timer_callback_dt_(0.1), previous_trajectory_()
+SpeedPlannerNode::SpeedPlannerNode() : nh_(), private_nh_("~"), previous_trajectory_()
 {
     double mass;
     double mu;
@@ -25,6 +25,7 @@ SpeedPlannerNode::SpeedPlannerNode() : nh_(), private_nh_("~"), timer_callback_d
     private_nh_.param<double>("mu", mu, 0.8);
     private_nh_.param<double>("ds", ds, 0.1);
     private_nh_.param<double>("preview_distance", previewDistance, 20.0);
+    private_nh_.param<double>("callback_dt", timer_callback_dt_, 0.2);
     private_nh_.param<double>("curvature_weight", curvatureWeight_, 20.0);
     private_nh_.param<double>("decay_factor", decayFactor_, 0.8);
     private_nh_.param<double>("time_weight", weight[0], 0.0);
@@ -51,7 +52,6 @@ SpeedPlannerNode::SpeedPlannerNode() : nh_(), private_nh_("~"), timer_callback_d
     optimized_waypoints_debug_ = nh_.advertise<geometry_msgs::Twist>("optimized_speed_debug", 1, true);
     result_velocity_pub_ = nh_.advertise<std_msgs::Float32>("result_velocity", 1, true);
     desired_velocity_pub_ = nh_.advertise<std_msgs::Float32>("desired_velocity", 1, true);
-    curvature_pub_ = nh_.advertise<std_msgs::Float32>("curvature", 1, true);
 
     final_waypoints_sub_ = nh_.subscribe("safety_waypoints", 1, &SpeedPlannerNode::waypointsCallback, this);
     current_pose_sub_ = nh_.subscribe("/current_pose", 1, &SpeedPlannerNode::currentPoseCallback, this);
@@ -140,7 +140,6 @@ void SpeedPlannerNode::timerCallback(const ros::TimerEvent& e)
         }
         
         //1. create trajectory
-        //TrajectoryLoader trajectory(current_x, current_y, waypoint_x, waypoint_y, speedOptimizer_->ds_, speedOptimizer_->previewDistance_, skip_size_, smooth_size_);
         int nearest_waypoint_id = getNearestId(current_x, current_y, waypoint_x, waypoint_y);
         Trajectory trajectory(waypoint_x, waypoint_y, waypoint_yaw, waypoint_curvature, nearest_waypoint_id);
 
@@ -170,9 +169,7 @@ void SpeedPlannerNode::timerCallback(const ros::TimerEvent& e)
         ROS_INFO("Current Velocity: %f", in_twist_ptr_->twist.linear.x);
 
         //3. dyanmic obstacles
-        double safeTime = 10.0;
-        //std::pair<int, double> collision_info; //predicted collision position id and time 
-        std::unique_ptr<CollisionInfo> collision_info;
+        std::unique_ptr<CollisionInfo> collision_info_ptr;
         bool is_collide = false;
 
         if(in_objects_ptr_ && !in_objects_ptr_->objects.empty())
@@ -203,20 +200,19 @@ void SpeedPlannerNode::timerCallback(const ros::TimerEvent& e)
             }
           }
 
-          is_collide = collision_checker_ptr_->check(trajectory, obstacles, ego_vehicle_ptr_, collision_info);
+          is_collide = collision_checker_ptr_->check(trajectory, obstacles, ego_vehicle_ptr_, collision_info_ptr);
         }
 
         if(is_collide)
         {
-          assert(collision_info!=nullptr);
-          ROS_INFO("Collide Position id is %d", collision_info->getId());
-          ROS_INFO("Collision Occured Position is %f", trajectory.x_[collision_info->getId()]);
+          assert(collision_info_ptr!=nullptr);
+          ROS_INFO("Collide Position id is %d", collision_info_ptr->getId());
+          ROS_INFO("Collision Occured Position is %f", trajectory.x_[collision_info_ptr->getId()]);
         }
         else
           ROS_INFO("Not Collide");
 
-        double collisionTime=0.0;
-        double collisionDistance = 0.0;
+        double safeTime = 30.0;
 
         //4. Create Speed Constraints and Acceleration Constraints
         int N = trajectory.x_.size();
@@ -227,17 +223,17 @@ void SpeedPlannerNode::timerCallback(const ros::TimerEvent& e)
         std::vector<double> Aclon(N, 0.0);  //comfort longitudinal acceleration restriction
         std::vector<double> Aclat(N, 0.0);  //comfort lateral acceleration restriction
 
-        if(is_collide && collision_info->getType()==Obstacle::TYPE::STATIC)
+        if(is_collide && collision_info_ptr->getType()==Obstacle::TYPE::STATIC)
         {
           Vr[0] = max_speed_;
           Vd[0] = v0;
-          for(int i=1; i<collision_info->getId()-100; ++i)
+          for(int i=1; i<collision_info_ptr->getId()-100; ++i)
           {
             Vr[i] = max_speed_;
             Vd[i] = std::max(std::min(Vr[i]-0.5, std::sqrt(lateral_g_/(std::fabs(trajectory.curvature_[i]+1e-10)))), 1.0);
           }
         }
-        else if (is_collide && collision_info->getType()==Obstacle::TYPE::DYNAMIC)
+        else if (is_collide && collision_info_ptr->getType()==Obstacle::TYPE::DYNAMIC)
         {
           std::cout << "Dynamic Obstacle" << std::endl;
           Vr[0] = max_speed_;
@@ -276,7 +272,19 @@ void SpeedPlannerNode::timerCallback(const ros::TimerEvent& e)
         ////////////////////////////////Calculate Optimized Speed////////////////////////////////
         std::vector<double> result_speed(N, 0.0);
         std::vector<double> result_acceleration(N, 0.0);
-        bool is_result = speedOptimizer_->calcOptimizedSpeed(trajectory, result_speed, result_acceleration, Vr, Vd, Arlon, Arlat, Aclon, Aclat, a0, collisionTime, collisionDistance, safeTime);
+        bool is_result = speedOptimizer_->calcOptimizedSpeed(trajectory, 
+                                                             result_speed, 
+                                                             result_acceleration, 
+                                                             Vr, 
+                                                             Vd, 
+                                                             Arlon, 
+                                                             Arlat, 
+                                                             Aclon, 
+                                                             Aclat, 
+                                                             a0, 
+                                                             is_collide,
+                                                             collision_info_ptr,
+                                                             safeTime);
 
         if(is_result)
         {
@@ -295,7 +303,6 @@ void SpeedPlannerNode::timerCallback(const ros::TimerEvent& e)
 
           for(int i=0; i<N; i++)
           {
-            //result[i] = std::min(std::max(result[i], 0.5), 4.9);
             result_speed[i] = std::min(result_speed[i] ,4.9);
             autoware_msgs::Waypoint waypoint;
             waypoint.pose.pose.position.x = trajectory.x_[i];
@@ -305,6 +312,8 @@ void SpeedPlannerNode::timerCallback(const ros::TimerEvent& e)
             waypoint.pose.header = in_lane_ptr_->header;
             waypoint.twist.header=in_lane_ptr_->header;
             waypoint.twist.twist.linear.x = result_speed[i];
+
+            std::cout << result_speed[i] << std::endl;
 
             speedOptimizedLane.waypoints.push_back(waypoint);
           }
@@ -321,14 +330,10 @@ void SpeedPlannerNode::timerCallback(const ros::TimerEvent& e)
 
           optimized_waypoints_pub_.publish(speedOptimizedLane);
           previous_trajectory_.reset(new Trajectory(waypoint_x, waypoint_y, waypoint_yaw, waypoint_curvature, result_speed, result_acceleration));
-
-          std_msgs::Float32 curvature;
-          curvature.data = trajectory.curvature_[0];
-          curvature_pub_.publish(curvature);
         }
         else
         {
-          ROS_INFO("Gurobi Fialed");
+          ROS_INFO("[Speed Planner]: Gurobi Failed");
           std::cout << "Vr[0]: " << Vr[0] << std::endl;
           std::cout << "Vd[0]: " << Vd[0] << std::endl;
           std::cout << "Vr[1]: " << Vr[1] << std::endl;
@@ -366,6 +371,8 @@ void SpeedPlannerNode::timerCallback(const ros::TimerEvent& e)
 
             speedOptimizedLane.waypoints.push_back(waypoint);
           }
+
+          optimized_waypoints_pub_.publish(speedOptimizedLane);
         }
 
         ROS_INFO("=======================================================");

@@ -19,7 +19,6 @@
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include <std_msgs/Float64.h>
 #include <std_msgs/Float32.h>
-#include "speed_planner/trajectory_loader.h"
 #include "speed_planner/convex_speed_optimizer.h"
 #include "speed_planner/obstacle.h"
 #include "speed_planner/vehicle_info.h"
@@ -38,7 +37,6 @@ class SpeedPlannerNode
         ros::Publisher optimized_waypoints_pub_;
         ros::Publisher result_velocity_pub_;
         ros::Publisher optimized_waypoints_debug_;
-        ros::Publisher curvature_pub_;
         ros::Publisher desired_velocity_pub_;
         ros::Subscriber current_status_sub_;
         ros::Subscriber current_pose_sub_;

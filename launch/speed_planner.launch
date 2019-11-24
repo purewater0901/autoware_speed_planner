@@ -3,6 +3,7 @@
     <arg name="mu" default="0.8" />
     <arg name="ds" default="0.1" />
     <arg name="preview_distance" default="30" />
+    <arg name="callback_dt" default="0.2" />
     <arg name="time_weight" default="0.0" />
     <arg name="smooth_weight" default="15.0" />
     <arg name="velocity_weight" default="15.0" />
@@ -23,6 +24,7 @@
         <param name="mu" value="$(arg mu)" />
         <param name="ds" value="$(arg ds)" />
         <param name="preview_distance" value="$(arg preview_distance)" />
+        <param name="callback_dt" value="$(arg callback_dt)" />
         <param name="time_weight" value="$(arg time_weight)" />
         <param name="smooth_weight" value="$(arg smooth_weight)" />
         <param name="velocity_weight" value="$(arg velocity_weight)" />

@@ -4,8 +4,8 @@
 #include <vector>
 #include <array>
 #include <cassert>
-#include "speed_planner/trajectory_loader.h"
 #include "speed_planner/trajectory.h"
+#include "speed_planner/collision_checker.h"
 #include "gurobi_c++.h"
 
 class ConvexSpeedOptimizer
@@ -17,7 +17,7 @@ class ConvexSpeedOptimizer
                         const double mu,
                         std::array<double, 5>& weight);
 
-        bool calcOptimizedSpeed(Trajectory& trajectory,
+        bool calcOptimizedSpeed(const Trajectory& trajectory,
                                 std::vector<double>& result_speed, 
                                 std::vector<double>& result_acceleration, 
                                 const std::vector<double>& Vr,
@@ -27,8 +27,8 @@ class ConvexSpeedOptimizer
                                 const std::vector<double>& Aclon,
                                 const std::vector<double>& Aclat,
                                 const double a0,
-                                const double collisionTime,
-                                const double collisionDistance,
+                                const bool is_collide,
+                                const std::unique_ptr<CollisionInfo>& collisioin_info,
                                 const double safeTime);
 
         double epsilon_;

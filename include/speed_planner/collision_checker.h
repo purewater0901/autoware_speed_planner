@@ -12,16 +12,18 @@ class CollisionInfo
 {
 public:
     CollisionInfo(const Obstacle::TYPE type, int collision_position_id, double collision_time)
-                 : type_(type), collision_position_id_(collision_position_id), collision_time_(collision_time) 
+                 : type_(type), collision_position_id_(collision_position_id), collision_time_(collision_time), traversal_time_(10.0)
                  {}
 
     int getId() { return collision_position_id_; }
-    double getTime() { return collision_time_; }
+    double getCollisionTime() { return collision_time_; }
+    double getTraversalTime() { return traversal_time_; }
     Obstacle::TYPE getType() { return type_; }
 
     Obstacle::TYPE type_;
     int collision_position_id_;
     double collision_time_;
+    double traversal_time_;
 };
 
 class CollisionChecker
