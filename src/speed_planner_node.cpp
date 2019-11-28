@@ -307,7 +307,7 @@ void SpeedPlannerNode::timerCallback(const ros::TimerEvent& e)
 
           for(int i=0; i<N; i++)
           {
-            result_speed[i] = std::min(result_speed[i] ,4.9);
+            result_speed[i] = std::min(result_speed[i] ,max_speed_-0.1);
             autoware_msgs::Waypoint waypoint;
             waypoint.pose.pose.position.x = trajectory.x_[i];
             waypoint.pose.pose.position.y = trajectory.y_[i];
