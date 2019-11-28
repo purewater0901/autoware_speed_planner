@@ -37,7 +37,7 @@ int CollisionChecker::collision_check(const Trajectory& trajectory,
         double dist = std::sqrt(std::pow((x - obstacle_x), 2) + std::pow((y - obstacle_y), 2));
         double clearance_radius = ego_vehicle->circumcircle_radius_+ego_vehicle->safety_distance_; //largest_circle + safety_distance
 
-        if(dist <= obstacle_radius+ clearance_radius)
+        if(dist <= obstacle_radius + clearance_radius)
         {
             //step2 check the middle circles
             double middle_clearance_radius = ego_vehicle->middlecircle_radius_ + ego_vehicle->safety_distance_;

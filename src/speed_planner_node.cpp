@@ -235,7 +235,6 @@ void SpeedPlannerNode::timerCallback(const ros::TimerEvent& e)
         }
         else if (is_collide && collision_info_ptr->getType()==Obstacle::TYPE::DYNAMIC)
         {
-          std::cout << "Dynamic Obstacle" << std::endl;
           Vr[0] = max_speed_;
           Vd[0] = v0;
           for(size_t i=1; i<Vr.size(); ++i)
@@ -267,6 +266,11 @@ void SpeedPlannerNode::timerCallback(const ros::TimerEvent& e)
 
         //Output the information
         ROS_INFO("Size: %d", N);
+        if(collision_info_ptr!=nullptr)
+        {
+          ROS_INFO("Collision id %d", collision_info_ptr->getId());
+          ROS_INFO("Collision time %f", collision_info_ptr->getCollisionTime());
+        }
 
         //////////////////////////////////////////////////////////////////////////////////////////
         ////////////////////////////////Calculate Optimized Speed////////////////////////////////
@@ -313,7 +317,7 @@ void SpeedPlannerNode::timerCallback(const ros::TimerEvent& e)
             waypoint.twist.header=in_lane_ptr_->header;
             waypoint.twist.twist.linear.x = result_speed[i];
 
-            std::cout << result_speed[i] << std::endl;
+            //std::cout << result_speed[i] << std::endl;
 
             speedOptimizedLane.waypoints.push_back(waypoint);
           }

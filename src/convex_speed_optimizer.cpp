@@ -158,8 +158,9 @@ bool ConvexSpeedOptimizer::calcOptimizedSpeed(const Trajectory& trajectory,
                 double traversal_time = collision_info->getTraversalTime();
                 for(int i=0; i<collision_info->getId(); ++i)
                     timeWindowLin += 2*ds_*variables[i+7*N];
-                model.addConstr(timeWindowLin-collision_time-traversal_time<=safeTime-collision_time-traversal_time, "timeWindow1");
-                model.addConstr(timeWindowLin-collision_time-traversal_time>=0.0, "timeWindow2");
+                //model.addConstr(timeWindowLin-collision_time-traversal_time<=safeTime-collision_time-traversal_time, "timeWindow1");
+                model.addConstr(timeWindowLin<=safeTime, "timeWindow1");
+                model.addConstr(timeWindowLin>=collision_time+traversal_time, "timeWindow2");
                 //model.addConstr(timeWindowLin<=collision_info->getTime(), "timeWindow1");
                 //model.addConstr(timeWindowLin>=0.0, "timeWindow2");
             }
