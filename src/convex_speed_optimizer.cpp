@@ -142,27 +142,23 @@ bool ConvexSpeedOptimizer::calcOptimizedSpeed(const Trajectory& trajectory,
             {
                 for(int i=0; i<N-1; ++i)
                 {
-                    model.addConstr(variables[i+(8*N-1)]==variables[i+6*N+1]+variables[i+6*N]-variables[i+7*N]+epsilon_, "se1"+std::to_string(i));
-                    model.addConstr(variables[i+(9*N-2)]==variables[i+6*N+1]+variables[i+6*N]+variables[i+7*N]+epsilon_, "se2"+std::to_string(i));
+                    model.addConstr(variables[i+(8*N-1)]==variables[i+6*N+1]+variables[i+6*N]+epsilon_-variables[i+7*N], "se1"+std::to_string(i));
+                    model.addConstr(variables[i+(9*N-2)]==variables[i+6*N+1]+variables[i+6*N]+epsilon_+variables[i+7*N], "se2"+std::to_string(i));
                     model.addQConstr(4+variables[i+(8*N-1)]*variables[i+(8*N-1)]<=variables[i+(9*N-2)]*variables[i+(9*N-2)], "qc_time_window"+std::to_string(i));
                 }
 
                 for(int i=0; i<N; ++i)
-                {
-                    model.addQConstr(4*variables[i+6*N]*variables[i+6*N]+(variables[i]-1)*(variables[i]-1)<=(variables[i]+1)*(variables[i]+1), "qc"+std::to_string(i));
-                    //model.addQConstr(variables[i]>=variables[i+6*N]*variables[i+6*N], "qc"+std::to_string(i));
-                }
+                    model.addQConstr(variables[i]>=variables[i+6*N]*variables[i+6*N], "qc"+std::to_string(i));
 
                 GRBLinExpr timeWindowLin=0.0;
-                double collision_time = collision_info->getCollisionTime();
+                double collision_time = collision_info->getCollisionTime()-1;
+                if(collision_time<0)
+                    collision_time = 0.0;
                 double traversal_time = collision_info->getTraversalTime();
                 for(int i=0; i<collision_info->getId(); ++i)
                     timeWindowLin += 2*ds_*variables[i+7*N];
-                //model.addConstr(timeWindowLin-collision_time-traversal_time<=safeTime-collision_time-traversal_time, "timeWindow1");
-                model.addConstr(timeWindowLin<=safeTime, "timeWindow1");
-                model.addConstr(timeWindowLin>=collision_time+traversal_time, "timeWindow2");
-                //model.addConstr(timeWindowLin<=collision_info->getTime(), "timeWindow1");
-                //model.addConstr(timeWindowLin>=0.0, "timeWindow2");
+                model.addConstr(timeWindowLin<=collision_time, "timeWindow1");
+                model.addConstr(timeWindowLin>=0.0, "timeWindow2");
             }
         }
 

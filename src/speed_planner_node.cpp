@@ -235,7 +235,7 @@ void SpeedPlannerNode::timerCallback(const ros::TimerEvent& e)
         }
         else if (is_collide && collision_info_ptr->getType()==Obstacle::TYPE::DYNAMIC)
         {
-          Vr[0] = max_speed_;
+          Vr[0] = v0+0.1;
           Vd[0] = v0;
           for(size_t i=1; i<Vr.size(); ++i)
           {
@@ -245,7 +245,7 @@ void SpeedPlannerNode::timerCallback(const ros::TimerEvent& e)
         }
         else
         {
-          Vr[0] = max_speed_;
+          Vr[0] = v0+0.1;
           Vd[0] = v0;
           for(size_t i=1; i<Vr.size(); ++i)
           {
@@ -337,7 +337,7 @@ void SpeedPlannerNode::timerCallback(const ros::TimerEvent& e)
         }
         else
         {
-          ROS_INFO("[Speed Planner]: Gurobi Failed");
+          ROS_WARN("[Speed Planner]: Gurobi Failed");
           std::cout << "Vr[0]: " << Vr[0] << std::endl;
           std::cout << "Vd[0]: " << Vd[0] << std::endl;
           std::cout << "Vr[1]: " << Vr[1] << std::endl;
